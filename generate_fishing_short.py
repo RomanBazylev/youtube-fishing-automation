@@ -1,6 +1,7 @@
 import json
 import os
 import random
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
@@ -14,12 +15,38 @@ from moviepy.editor import (
     VideoFileClip,
     CompositeVideoClip,
     concatenate_videoclips,
+    vfx,
 )
 
-
+# ── Константы ──────────────────────────────────────────────────────────
+TARGET_W, TARGET_H = 1080, 1920
 BUILD_DIR = Path("build")
 CLIPS_DIR = BUILD_DIR / "clips"
 MUSIC_PATH = BUILD_DIR / "music.mp3"
+
+FISHING_TOPICS = [
+    "3 ошибки новичков при ловле щуки",
+    "Как поймать трофейного окуня — секреты опытных рыбаков",
+    "5 приманок, на которые клюёт всегда",
+    "Почему у тебя не клюёт? Разбор типичных ошибок",
+    "Ночная рыбалка на леща: что нужно знать",
+    "Секреты выбора места для рыбалки на реке",
+    "Топ-3 проводки на щуку, которые работают в любое время года",
+    "Весенний жор: как не упустить свой шанс",
+    "Как подобрать снасть для ловли с берега — гайд для новичка",
+    "Самая частая причина сходов рыбы и как её устранить",
+]
+
+PEXELS_QUERIES = [
+    "fishing river",
+    "fishing lake",
+    "fish underwater",
+    "fishing boat",
+    "fishing rod",
+    "river nature",
+    "lake sunrise",
+    "angler fishing",
+]
 
 
 @dataclass
@@ -32,85 +59,114 @@ def ensure_dirs() -> None:
     CLIPS_DIR.mkdir(parents=True, exist_ok=True)
 
 
+# ── Фоллбек-сценарий ──────────────────────────────────────────────────
+def _fallback_script() -> List[ScriptPart]:
+    return [
+        ScriptPart("3 ошибки новичков при ловле щуки с лодки!"),
+        ScriptPart("Первая — слишком толстая леска. Она убивает чувствительность снасти."),
+        ScriptPart("Вторая — слишком быстрая проводка. Щука просто не успевает атаковать."),
+        ScriptPart("Третья — ты игнорируешь рельеф. Бровки, коряжник и свалы — вот где трофеи."),
+        ScriptPart("Сохрани это видео и подпишись, чтобы ловить больше!"),
+    ]
+
+
 def call_groq_for_script() -> List[ScriptPart]:
     api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
-        # Фоллбек, если ключа нет – жёстко заданный сценарий
-        return [
-            ScriptPart("3 ошибки новичков при ловле щуки с лодки."),
-            ScriptPart("Первая ошибка — слишком толстая леска, которая убивает чувствительность снасти."),
-            ScriptPart("Вторая — слишком быстрая проводка, из-за которой щука не успевает атаковать приманку."),
-            ScriptPart("Третья — игнорировать рельеф: бровки, коряжник и свалы часто приносят трофеи."),
-            ScriptPart("Если было полезно — подпишись на канал о рыбалке."),
-        ]
+        return _fallback_script()
+
+    topic = random.choice(FISHING_TOPICS)
 
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
-    prompt = """
-Ты сценарист YouTube-Shorts про рыбалку.
-Сгенерируй короткий сценарий (30–60 секунд) на русском языке.
 
-Формат вывода — строго JSON, без лишнего текста:
-{
+    system_prompt = (
+        "Ты — топовый сценарист вирусных YouTube Shorts про рыбалку. "
+        "Твоя задача — писать сценарии, которые удерживают внимание с первой секунды, "
+        "вызывают эмоции и желание поделиться. "
+        "Отвечай ТОЛЬКО валидным JSON без markdown-обёрток и пояснений."
+    )
+
+    user_prompt = f"""Напиши сценарий YouTube Shorts (30–50 секунд) на тему: «{topic}».
+
+ПРАВИЛА ВИРАЛЬНОСТИ:
+- Первая фраза — мощный хук: вопрос, шокирующий факт или провокация. Зритель должен остановить скролл.
+- Каждая следующая фраза — короткая (максимум 2 предложения), динамичная, с новой ценностью.
+- Используй «ты»-обращение, как будто говоришь с другом на рыбалке.
+- Финал — эмоциональный призыв: сохранить, подписаться, написать в комментариях.
+- 4–6 частей всего. Язык — живой разговорный русский.
+
+Формат — строго JSON:
+{{
   "parts": [
-    { "text": "..." }
+    {{ "text": "..." }}
   ]
-}
+}}"""
 
-Каждый элемент parts — короткая фраза (1–2 предложения), которая будет отдельным кадром с субтитрами.
-Тема: советы и ошибки при ловле щуки.
-"""
     body = {
-        "model": "mixtral-8x7b-32768",
+        "model": "llama-3.3-70b-versatile",
         "messages": [
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": prompt},
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
         ],
-        "temperature": 0.8,
+        "temperature": 0.9,
+        "max_tokens": 1024,
     }
-    resp = requests.post(url, headers=headers, json=body, timeout=30)
-    resp.raise_for_status()
-    content = resp.json()["choices"][0]["message"]["content"]
-
     try:
+        resp = requests.post(url, headers=headers, json=body, timeout=30)
+        resp.raise_for_status()
+        content = resp.json()["choices"][0]["message"]["content"]
+        # Убираем markdown-обёртку ```json ... ```, если LLM её добавил
+        content = re.sub(r"^```(?:json)?\s*", "", content.strip())
+        content = re.sub(r"\s*```$", "", content.strip())
         data = json.loads(content)
         parts = [ScriptPart(p["text"]) for p in data.get("parts", []) if p.get("text")]
-        if parts:
+        if len(parts) >= 3:
             return parts
-    except Exception:
-        pass
+    except Exception as exc:
+        print(f"[WARN] Groq API error, using fallback script: {exc}")
 
-    # Фоллбек, если LLM вернул невалидный JSON
-    return [
-        ScriptPart("3 ошибки новичков при ловле щуки с лодки."),
-        ScriptPart("Первая ошибка — слишком толстая леска, которая убивает чувствительность снасти."),
-        ScriptPart("Вторая — слишком быстрая проводка, из-за которой щука не успевает атаковать приманку."),
-        ScriptPart("Третья — игнорировать рельеф: бровки, коряжник и свалы часто приносят трофеи."),
-        ScriptPart("Если было полезно — подпишись на канал о рыбалке."),
-    ]
+    return _fallback_script()
 
 
-def download_pexels_clips(max_clips: int = 3) -> List[Path]:
+# ── Скачивание клипов ─────────────────────────────────────────────────
+def _download_file(url: str, dest: Path) -> None:
+    r = requests.get(url, stream=True, timeout=120)
+    r.raise_for_status()
+    with dest.open("wb") as f:
+        for chunk in r.iter_content(chunk_size=32768):
+            if chunk:
+                f.write(chunk)
+
+
+def download_pexels_clips(max_clips: int = 5) -> List[Path]:
     api_key = os.getenv("PEXELS_API_KEY")
     if not api_key:
         return []
 
+    query = random.choice(PEXELS_QUERIES)
     headers = {"Authorization": api_key}
     params = {
-        "query": "fishing",
+        "query": query,
         "per_page": max_clips,
         "orientation": "portrait",
     }
-    resp = requests.get(
-        "https://api.pexels.com/videos/search",
-        headers=headers,
-        params=params,
-        timeout=30,
-    )
-    resp.raise_for_status()
+
+    try:
+        resp = requests.get(
+            "https://api.pexels.com/videos/search",
+            headers=headers,
+            params=params,
+            timeout=30,
+        )
+        resp.raise_for_status()
+    except Exception as exc:
+        print(f"[WARN] Pexels API error: {exc}")
+        return []
+
     data = resp.json()
     result_paths: List[Path] = []
 
@@ -118,17 +174,19 @@ def download_pexels_clips(max_clips: int = 3) -> List[Path]:
         files = video.get("video_files", [])
         if not files:
             continue
-        # берём файл с минимальной шириной, чтобы не грузить слишком большие
-        best = sorted(files, key=lambda f: f.get("width") or 9999)[0]
+        # Берём HD-качество: ближайший к 1920 по высоте, но не менее 720
+        hd_files = [f for f in files if (f.get("height") or 0) >= 720]
+        if hd_files:
+            best = min(hd_files, key=lambda f: abs((f.get("height") or 0) - 1920))
+        else:
+            best = max(files, key=lambda f: f.get("height") or 0)
         url = best["link"]
         clip_path = CLIPS_DIR / f"pexels_{idx}.mp4"
-        r = requests.get(url, stream=True, timeout=60)
-        r.raise_for_status()
-        with clip_path.open("wb") as f:
-            for chunk in r.iter_content(chunk_size=8192):
-                if chunk:
-                    f.write(chunk)
-        result_paths.append(clip_path)
+        try:
+            _download_file(url, clip_path)
+            result_paths.append(clip_path)
+        except Exception as exc:
+            print(f"[WARN] Failed to download Pexels clip {idx}: {exc}")
 
     return result_paths
 
@@ -140,70 +198,64 @@ def download_pixabay_clips(max_clips: int = 3) -> List[Path]:
 
     params = {
         "key": api_key,
-        "q": "fishing",
+        "q": random.choice(["fishing", "river fish", "lake fishing"]),
         "per_page": max_clips,
         "safesearch": "true",
         "order": "popular",
-        # videos API по умолчанию отдаёт несколько размеров; ориентацию подберём по размеру
     }
-    resp = requests.get(
-        "https://pixabay.com/api/videos/",
-        params=params,
-        timeout=30,
-    )
-    resp.raise_for_status()
+
+    try:
+        resp = requests.get(
+            "https://pixabay.com/api/videos/",
+            params=params,
+            timeout=30,
+        )
+        resp.raise_for_status()
+    except Exception as exc:
+        print(f"[WARN] Pixabay API error: {exc}")
+        return []
+
     data = resp.json()
     result_paths: List[Path] = []
 
     for idx, hit in enumerate(data.get("hits", [])[:max_clips], start=1):
         videos = hit.get("videos") or {}
-        # берём medium или small, если medium нет
-        cand = videos.get("medium") or videos.get("small") or videos.get("large")
+        cand = videos.get("large") or videos.get("medium") or videos.get("small")
         if not cand or "url" not in cand:
             continue
         url = cand["url"]
         clip_path = CLIPS_DIR / f"pixabay_{idx}.mp4"
-        r = requests.get(url, stream=True, timeout=60)
-        r.raise_for_status()
-        with clip_path.open("wb") as f:
-            for chunk in r.iter_content(chunk_size=8192):
-                if chunk:
-                    f.write(chunk)
-        result_paths.append(clip_path)
+        try:
+            _download_file(url, clip_path)
+            result_paths.append(clip_path)
+        except Exception as exc:
+            print(f"[WARN] Failed to download Pixabay clip {idx}: {exc}")
 
     return result_paths
 
 
 def download_background_music() -> Optional[Path]:
-    """
-    Скачивает один бесплатный трек из заранее заданного списка URL.
-    Если что-то пошло не так, просто возвращает None — ролик будет без музыки.
-    """
     if os.getenv("DISABLE_BG_MUSIC") == "1":
         return None
 
     if MUSIC_PATH.is_file():
         return MUSIC_PATH
 
-    # Набор ссылок на бесплатные треки (примерные URL, подставь свои при желании)
     candidate_urls = [
         "https://files.freemusicarchive.org/storage-freemusicarchive-org/music/no_curator/Komiku/Its_time_for_adventure/Komiku_-_05_-_Friends.mp3",
         "https://files.freemusicarchive.org/storage-freemusicarchive-org/music/no_curator/Podington_Bear/Daydream/Podington_Bear_-_Daydream.mp3",
     ]
 
-    url = random.choice(candidate_urls)
-    try:
-        resp = requests.get(url, stream=True, timeout=60)
-        resp.raise_for_status()
-        with MUSIC_PATH.open("wb") as f:
-            for chunk in resp.iter_content(chunk_size=8192):
-                if chunk:
-                    f.write(chunk)
-        return MUSIC_PATH
-    except Exception:
-        return None
+    for url in random.sample(candidate_urls, len(candidate_urls)):
+        try:
+            _download_file(url, MUSIC_PATH)
+            return MUSIC_PATH
+        except Exception:
+            continue
+    return None
 
 
+# ── TTS ────────────────────────────────────────────────────────────────
 def build_tts_audio(parts: List[ScriptPart]) -> Path:
     text = " ".join(p.text for p in parts)
     tts = gTTS(text=text, lang="ru")
@@ -212,76 +264,126 @@ def build_tts_audio(parts: List[ScriptPart]) -> Path:
     return audio_path
 
 
+# ── Сборка видео ──────────────────────────────────────────────────────
+def _fit_clip_to_frame(clip: VideoFileClip, duration: float) -> VideoFileClip:
+    """Подрезает/зацикливает клип до нужной длительности и кропит в 9:16."""
+    # Случайное окно по времени
+    if clip.duration > duration + 0.5:
+        max_start = clip.duration - duration
+        start = random.uniform(0, max_start)
+        segment = clip.subclip(start, start + duration)
+    else:
+        segment = clip.fx(vfx.loop, duration=duration)
+
+    # Масштабируем так, чтобы полностью покрыть TARGET_W x TARGET_H, а потом кропим центр
+    src_ratio = segment.w / segment.h
+    target_ratio = TARGET_W / TARGET_H
+    if src_ratio > target_ratio:
+        # Видео шире чем нужно — скейлим по высоте, кропим по ширине
+        segment = segment.resize(height=TARGET_H)
+        x_center = segment.w / 2
+        segment = segment.crop(
+            x_center=x_center, y_center=TARGET_H / 2,
+            width=TARGET_W, height=TARGET_H,
+        )
+    else:
+        # Видео уже чем нужно — скейлим по ширине, кропим по высоте
+        segment = segment.resize(width=TARGET_W)
+        y_center = segment.h / 2
+        segment = segment.crop(
+            x_center=TARGET_W / 2, y_center=y_center,
+            width=TARGET_W, height=TARGET_H,
+        )
+    return segment
+
+
+def _make_subtitle(text: str, duration: float) -> TextClip:
+    """Субтитр с обводкой и тенью — читаем даже на ярком фоне."""
+    # Фон-подложка для текста (чёрный текст = тень, сдвинутый на 3px)
+    shadow = (
+        TextClip(
+            text,
+            fontsize=62,
+            color="black",
+            font="DejaVu-Sans-Bold",
+            method="caption",
+            size=(TARGET_W - 100, None),
+            stroke_color="black",
+            stroke_width=4,
+        )
+        .set_position(("center", 0.72), relative=True)
+        .set_duration(duration)
+    )
+    # Основной белый текст поверх тени
+    main_txt = (
+        TextClip(
+            text,
+            fontsize=62,
+            color="white",
+            font="DejaVu-Sans-Bold",
+            method="caption",
+            size=(TARGET_W - 100, None),
+            stroke_color="black",
+            stroke_width=2,
+        )
+        .set_position(("center", 0.72), relative=True)
+        .set_duration(duration)
+    )
+    return [shadow, main_txt]
+
+
 def build_video(
     parts: List[ScriptPart],
     clip_paths: List[Path],
     audio_path: Path,
     music_path: Optional[Path],
 ) -> Path:
-    """
-    Собираем вертикальное видео 1080x1920 с субтитрами и звуком:
-    - голос (TTS) на нормальном уровне
-    - фоновая музыка потише
-    """
     voice = AudioFileClip(str(audio_path))
     voice_duration = voice.duration
 
-    # если нет клипов с Pexels — просто один чёрный фон не делаем здесь, завершим ошибкой
     if not clip_paths:
-        raise RuntimeError("No Pexels clips downloaded. Provide PEXELS_API_KEY or add local clips.")
+        raise RuntimeError("No video clips downloaded. Provide PEXELS_API_KEY or PIXABAY_API_KEY.")
 
-    # 1) Даём "сырую" длительность по длине текста (~15 символов/сек),
-    #    но держим кадр в комфортных пределах 1.8–3.8 сек.
+    # Длительность каждого кадра пропорционально длине фразы
     raw_durations = []
     for part in parts:
-        approx = len(part.text) / 15.0
-        raw = min(max(approx, 1.8), 3.8)
+        approx = len(part.text) / 14.0
+        raw = min(max(approx, 2.0), 5.0)
         raw_durations.append(raw)
 
-    # 2) Масштабируем так, чтобы сумма длительностей совпадала с длиной озвучки.
     total_raw = sum(raw_durations) or 1.0
     scale = voice_duration / total_raw
     durations = [d * scale for d in raw_durations]
 
+    # Перемешиваем клипы для разнообразия кадров
+    shuffled_clips = clip_paths[:]
+    random.shuffle(shuffled_clips)
+
+    source_clips = []  # для корректного закрытия
     video_clips = []
     for i, part in enumerate(parts):
-        src_path = clip_paths[i % len(clip_paths)]
+        src_path = shuffled_clips[i % len(shuffled_clips)]
         clip = VideoFileClip(str(src_path))
+        source_clips.append(clip)
         target_duration = durations[i]
 
-        # выбираем случайное окно внутри клипа, чтобы было больше движения
-        if clip.duration > target_duration + 0.5:
-            max_start = clip.duration - target_duration
-            start = random.uniform(0, max_start)
-            subclip = clip.subclip(start, start + target_duration)
-        else:
-            subclip = clip.loop(duration=target_duration)
+        fitted = _fit_clip_to_frame(clip, target_duration)
 
-        # Делаем вертикальное видео 1080x1920 (Full HD вертикальное)
-        subclip = subclip.resize(height=1920)
-
-        subtitle = TextClip(
-            part.text,
-            fontsize=52,
-            color="white",
-            font="DejaVu-Sans",
-            method="caption",
-            size=(1080 - 120, None),
-        ).set_position(("center", "bottom")).set_duration(target_duration)
+        subtitle_layers = _make_subtitle(part.text, target_duration)
 
         composed = CompositeVideoClip(
-            [subclip, subtitle],
-            size=(1080, 1920),
+            [fitted] + subtitle_layers,
+            size=(TARGET_W, TARGET_H),
         ).set_duration(target_duration)
         video_clips.append(composed)
 
     video = concatenate_videoclips(video_clips, method="compose").set_duration(voice_duration)
 
-    # Фоновая музыка (если есть)
+    # Аудио: голос + приглушённая фоновая музыка
     audio_tracks = [voice]
     bg = None
     if music_path and music_path.is_file():
-        bg = AudioFileClip(str(music_path)).volumex(0.1)
+        bg = AudioFileClip(str(music_path)).volumex(0.12)
         bg = bg.set_duration(video.duration)
         audio_tracks.append(bg)
 
@@ -294,14 +396,19 @@ def build_video(
         fps=30,
         codec="libx264",
         audio_codec="aac",
+        preset="slow",
+        bitrate="8000k",
         threads=4,
     )
 
+    # Корректно закрываем все ресурсы
     voice.close()
-    if "bg" in locals():
+    if bg is not None:
         bg.close()
     for vc in video_clips:
         vc.close()
+    for sc in source_clips:
+        sc.close()
     video.close()
 
     return output_path
@@ -309,13 +416,26 @@ def build_video(
 
 def main() -> None:
     ensure_dirs()
+    print("[1/5] Generating script...")
     parts = call_groq_for_script()
+    print(f"  Script: {len(parts)} parts")
+    for i, p in enumerate(parts, 1):
+        print(f"  [{i}] {p.text}")
+
+    print("[2/5] Downloading video clips...")
     clip_paths = download_pexels_clips()
     clip_paths += download_pixabay_clips()
+    print(f"  Downloaded {len(clip_paths)} clips")
+
+    print("[3/5] Generating TTS audio...")
     audio_path = build_tts_audio(parts)
+
+    print("[4/5] Downloading background music...")
     music_path = download_background_music()
+
+    print("[5/5] Building final video...")
     output = build_video(parts, clip_paths, audio_path, music_path)
-    print(f"Generated video: {output}")
+    print(f"Done! Video saved to: {output}")
 
 
 if __name__ == "__main__":
