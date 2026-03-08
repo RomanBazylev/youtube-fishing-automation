@@ -7,6 +7,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
 
+import numpy as np
+from PIL import Image
+
 import edge_tts
 import requests
 from moviepy.editor import (
@@ -287,7 +290,7 @@ def download_pixabay_clips(max_clips: int = 3) -> List[Path]:
 
     params = {
         "key": api_key,
-        "q": random.choice(["fishing", "river fish", "lake fishing"]),
+        "q": random.choice(_llm_pexels_queries or ["fishing", "river fish", "lake fishing"]),
         "per_page": max_clips,
         "safesearch": "true",
         "order": "popular",
@@ -406,8 +409,6 @@ def _apply_ken_burns(clip, duration: float):
         frame = get_frame(t)
         h, w = frame.shape[:2]
         new_h, new_w = int(h * scale), int(w * scale)
-        from PIL import Image
-        import numpy as np
         img = Image.fromarray(frame)
         img = img.resize((new_w, new_h), Image.LANCZOS)
         arr = np.array(img)
@@ -497,17 +498,13 @@ def build_video(
         ).set_duration(dur)
         video_clips.append(composed)
 
-    # Crossfade 0.25 сек между клипами для плавных переходов
-    CROSSFADE = 0.25
-    if len(video_clips) > 1:
-        crossfaded = [video_clips[0]]
-        for vc in video_clips[1:]:
-            crossfaded.append(vc.crossfadein(CROSSFADE))
-        video = concatenate_videoclips(crossfaded, padding=-CROSSFADE, method="compose")
-        total_duration = total_duration - CROSSFADE * (len(video_clips) - 1)
-        video = video.set_duration(total_duration)
-    else:
-        video = concatenate_videoclips(video_clips, method="compose").set_duration(total_duration)
+    # Плавный fade-in (0.2 сек) для каждого клипа кроме первого
+    # НЕ используем crossfade с negative padding — он ломает синхронизацию аудио/субтитров
+    FADE_DUR = 0.2
+    for idx in range(1, len(video_clips)):
+        video_clips[idx] = video_clips[idx].crossfadein(FADE_DUR)
+
+    video = concatenate_videoclips(video_clips, method="compose").set_duration(total_duration)
 
     # Аудио: голос + приглушённая фоновая музыка
     audio_tracks = [voice]
@@ -515,6 +512,8 @@ def build_video(
     if music_path and music_path.is_file():
         bg = AudioFileClip(str(music_path)).volumex(0.12)
         bg = bg.set_duration(total_duration)
+        # Плавное затухание музыки в конце
+        bg = bg.fx(vfx.audio_fadeout, min(1.5, total_duration * 0.1))
         audio_tracks.append(bg)
 
     final_audio = CompositeAudioClip(audio_tracks)
@@ -526,7 +525,7 @@ def build_video(
         fps=30,
         codec="libx264",
         audio_codec="aac",
-        preset="slow",
+        preset="medium",
         bitrate="8000k",
         threads=4,
     )
