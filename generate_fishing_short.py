@@ -21,6 +21,7 @@ from moviepy.editor import (
     concatenate_audioclips,
     concatenate_videoclips,
     vfx,
+    afx,
 )
 
 # ── Константы ──────────────────────────────────────────────────────────
@@ -513,7 +514,7 @@ def build_video(
         bg = AudioFileClip(str(music_path)).volumex(0.12)
         bg = bg.set_duration(total_duration)
         # Плавное затухание музыки в конце
-        bg = bg.fx(vfx.audio_fadeout, min(1.5, total_duration * 0.1))
+        bg = bg.fx(afx.audio_fadeout, min(1.5, total_duration * 0.1))
         audio_tracks.append(bg)
 
     final_audio = CompositeAudioClip(audio_tracks)
