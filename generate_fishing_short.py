@@ -150,51 +150,64 @@ def _download_file(url: str, dest: Path) -> None:
                 f.write(chunk)
 
 
-def download_pexels_clips(max_clips: int = 5) -> List[Path]:
+def _pexels_best_file(video_files: list) -> Optional[dict]:
+    """Pick the best HD file from Pexels video_files list."""
+    hd = [f for f in video_files if (f.get("height") or 0) >= 720]
+    if hd:
+        return min(hd, key=lambda f: abs((f.get("height") or 0) - 1920))
+    if video_files:
+        return max(video_files, key=lambda f: f.get("height") or 0)
+    return None
+
+
+def download_pexels_clips(target_count: int = 6) -> List[Path]:
+    """Download clips using DIFFERENT search queries for visual diversity."""
     api_key = os.getenv("PEXELS_API_KEY")
     if not api_key:
         return []
 
-    query = random.choice(PEXELS_QUERIES)
     headers = {"Authorization": api_key}
-    params = {
-        "query": query,
-        "per_page": max_clips,
-        "orientation": "portrait",
-    }
-
-    try:
-        resp = requests.get(
-            "https://api.pexels.com/videos/search",
-            headers=headers,
-            params=params,
-            timeout=30,
-        )
-        resp.raise_for_status()
-    except Exception as exc:
-        print(f"[WARN] Pexels API error: {exc}")
-        return []
-
-    data = resp.json()
+    queries = random.sample(PEXELS_QUERIES, min(target_count, len(PEXELS_QUERIES)))
     result_paths: List[Path] = []
+    seen_ids: set = set()
+    clip_idx = 0
 
-    for idx, video in enumerate(data.get("videos", [])[:max_clips], start=1):
-        files = video.get("video_files", [])
-        if not files:
-            continue
-        # Берём HD-качество: ближайший к 1920 по высоте, но не менее 720
-        hd_files = [f for f in files if (f.get("height") or 0) >= 720]
-        if hd_files:
-            best = min(hd_files, key=lambda f: abs((f.get("height") or 0) - 1920))
-        else:
-            best = max(files, key=lambda f: f.get("height") or 0)
-        url = best["link"]
-        clip_path = CLIPS_DIR / f"pexels_{idx}.mp4"
+    for query in queries:
+        if len(result_paths) >= target_count:
+            break
+        params = {
+            "query": query,
+            "per_page": 3,
+            "orientation": "portrait",
+        }
         try:
-            _download_file(url, clip_path)
-            result_paths.append(clip_path)
+            resp = requests.get(
+                "https://api.pexels.com/videos/search",
+                headers=headers, params=params, timeout=30,
+            )
+            resp.raise_for_status()
         except Exception as exc:
-            print(f"[WARN] Failed to download Pexels clip {idx}: {exc}")
+            print(f"[WARN] Pexels search '{query}' failed: {exc}")
+            continue
+
+        for video in resp.json().get("videos", []):
+            vid_id = video.get("id")
+            if vid_id in seen_ids:
+                continue
+            seen_ids.add(vid_id)
+            best = _pexels_best_file(video.get("video_files", []))
+            if not best:
+                continue
+            clip_idx += 1
+            clip_path = CLIPS_DIR / f"pexels_{clip_idx}.mp4"
+            try:
+                _download_file(best["link"], clip_path)
+                result_paths.append(clip_path)
+                print(f"    Pexels [{query}] -> clip {clip_idx}")
+            except Exception as exc:
+                print(f"[WARN] Pexels clip {clip_idx} download failed: {exc}")
+            if len(result_paths) >= target_count:
+                break
 
     return result_paths
 
@@ -383,14 +396,19 @@ def build_video(
     # Объединяем аудио-фразы в один трек
     voice = concatenate_audioclips(part_audios)
 
-    # Перемешиваем клипы для разнообразия
-    shuffled_clips = clip_paths[:]
-    random.shuffle(shuffled_clips)
+    # Гарантируем что каждый кадр берёт уникальный клип (если клипов хватает)
+    if len(clip_paths) >= len(parts):
+        chosen_clips = random.sample(clip_paths, len(parts))
+    else:
+        chosen_clips = clip_paths[:]
+        random.shuffle(chosen_clips)
+        while len(chosen_clips) < len(parts):
+            chosen_clips.append(random.choice(clip_paths))
 
     source_clips = []
     video_clips = []
     for i, part in enumerate(parts):
-        src_path = shuffled_clips[i % len(shuffled_clips)]
+        src_path = chosen_clips[i]
         clip = VideoFileClip(str(src_path))
         source_clips.append(clip)
         dur = durations[i]
