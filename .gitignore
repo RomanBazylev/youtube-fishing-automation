@@ -1,0 +1,27 @@
+# Build output
+build/
+
+# Environment and secrets (never commit)
+.env
+.env.local
+.env.*.local
+*.pem
+credentials.json
+secrets.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+*.egg-info/
+.eggs/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo

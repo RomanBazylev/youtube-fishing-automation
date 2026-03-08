@@ -1,0 +1,365 @@
+{
+  "name": "YouTube Fishing Shorts Generator",
+  "nodes": [
+    {
+      "id": "Cron",
+      "name": "Schedule",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 2,
+      "position": [260, 300],
+      "parameters": {
+        "triggerFunctions": {
+          "item": [
+            {
+              "mode": "everyX",
+              "value": 1,
+              "unit": "days"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ReadTopics",
+      "name": "Read Topics",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 3,
+      "position": [520, 300],
+      "parameters": {
+        "operation": "read",
+        "sheetId": "YOUR_SPREADSHEET_ID",
+        "range": "Topics!A:F",
+        "options": {
+          "valueRenderMode": "UNFORMATTED_VALUE"
+        }
+      },
+      "credentials": {
+        "googleApi": "GOOGLE_SHEETS_CREDENTIALS_NAME"
+      }
+    },
+    {
+      "id": "PickTopic",
+      "name": "Pick First Idea Topic",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [780, 300],
+      "parameters": {
+        "functionCode": "const ideas = items.filter(item => item.json.status === 'idea');\nif (ideas.length === 0) {\n  return [];\n}\n// Берём первую идею и пробрасываем только её\nreturn [ideas[0]];"
+      }
+    },
+    {
+      "id": "MarkInProgress",
+      "name": "Mark Topic In Progress",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 3,
+      "position": [1040, 160],
+      "parameters": {
+        "operation": "update",
+        "sheetId": "YOUR_SPREADSHEET_ID",
+        "options": {
+          "valueInputMode": "USER_ENTERED"
+        }
+      },
+      "credentials": {
+        "googleApi": "GOOGLE_SHEETS_CREDENTIALS_NAME"
+      }
+    },
+    {
+      "id": "BuildScriptPrompt",
+      "name": "Build Script Prompt",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [1040, 300],
+      "parameters": {
+        "functionCode": "const topic = $json[\"topic\"];\nconst angle = $json[\"angle\"] || \"\";\nconst keywords = $json[\"keywords\"] || \"\";\n\n// Текст для LLM по шаблону из docs/llm_prompts.md\nconst prompt = `Ты сценарист YouTube-Shorts про рыбалку.\nСгенерируй короткий сценарий (30–60 секунд) на русском языке.\n\nФормат вывода — JSON с полями intro, tips (массив), cta, каждый блок с text и image_hint.\n\nТема: ${topic}\nПодход/хук: ${angle}\nКлючевые слова: ${keywords}`;\n\nreturn [{ json: { prompt, topic, angle, keywords } }];"
+      }
+    },
+    {
+      "id": "CallLLMScript",
+      "name": "Call LLM for Script",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 2,
+      "position": [1320, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "https://your-llm-endpoint.example.com/script",
+        "responseFormat": "json",
+        "jsonParameters": true,
+        "options": {},
+        "bodyParametersJson": "={\"prompt\": $json[\"prompt\"]}"
+      },
+      "credentials": {
+        "httpBasicAuth": "OPTIONAL_LLM_CREDENTIALS"
+      }
+    },
+    {
+      "id": "NormalizeScript",
+      "name": "Normalize Script JSON",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [1580, 300],
+      "parameters": {
+        "functionCode": "const script = items[0].json;\n// Ожидаемый формат: { intro: {text, image_hint}, tips: [{text, image_hint}], cta: {text, image_hint} }\nreturn [{ json: { script } }];"
+      }
+    },
+    {
+      "id": "BuildTTSRequest",
+      "name": "Build TTS Request",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [1840, 260],
+      "parameters": {
+        "functionCode": "const script = $json[\"script\"];\nlet fullText = \"\";\nif (script.intro && script.intro.text) fullText += script.intro.text + \"\\n\";\nif (Array.isArray(script.tips)) {\n  for (const tip of script.tips) {\n    if (tip.text) fullText += tip.text + \"\\n\";\n  }\n}\nif (script.cta && script.cta.text) fullText += script.cta.text;\n\nreturn [{ json: { ttsText: fullText.trim(), script } }];"
+      }
+    },
+    {
+      "id": "CallTTS",
+      "name": "Call TTS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 2,
+      "position": [2100, 260],
+      "parameters": {
+        "method": "POST",
+        "url": "https://your-tts-endpoint.example.com/tts",
+        "responseFormat": "file",
+        "jsonParameters": true,
+        "bodyParametersJson": "={\"text\": $json[\"ttsText\"]}"
+      },
+      "credentials": {
+        "httpBasicAuth": "OPTIONAL_TTS_CREDENTIALS"
+      }
+    },
+    {
+      "id": "PrepareAssetsJson",
+      "name": "Prepare Assets JSON",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [1840, 360],
+      "parameters": {
+        "functionCode": "const script = $json[\"script\"];\n// Простейшая схема: для каждого блока указываем категорию для подбора медиа\nconst frames = [];\nif (script.intro) {\n  frames.push({\n    type: 'image',\n    category: script.intro.image_hint || 'river',\n    duration: 3,\n    text: script.intro.text,\n  });\n}\nif (Array.isArray(script.tips)) {\n  for (const tip of script.tips) {\n    frames.push({\n      type: 'image',\n      category: tip.image_hint || 'fish',\n      duration: 3,\n      text: tip.text,\n    });\n  }\n}\nif (script.cta) {\n  frames.push({\n    type: 'image',\n    category: script.cta.image_hint || 'sunset',\n    duration: 3,\n    text: script.cta.text,\n  });\n}\n\nreturn [{ json: { frames } }];"
+      }
+    },
+    {
+      "id": "WriteAssetsJson",
+      "name": "Write Assets JSON",
+      "type": "n8n-nodes-base.writeBinaryFile",
+      "typeVersion": 1,
+      "position": [2100, 360],
+      "parameters": {
+        "fileName": "c:/Users/rbazyleu/Documents/n8n/Рыболовный/runtime/assets_frames.json",
+        "fileContent": "={{ JSON.stringify($json[\"frames\"], null, 2) }}"
+      }
+    },
+    {
+      "id": "ExecuteVideoRenderer",
+      "name": "Execute Video Renderer",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [2360, 300],
+      "parameters": {
+        "command": "python",
+        "arguments": "video_renderer.py --frames-json \"c:/Users/rbazyleu/Documents/n8n/Рыболовный/runtime/assets_frames.json\" --audio-path \"{{$binary.data.fileName}}\" --output-dir \"c:/Users/rbazyleu/Documents/n8n/Рыболовный/output\"",
+        "workingDirectory": "c:/Users/rbazyleu/Documents/n8n/Рыболовный"
+      }
+    },
+    {
+      "id": "BuildMetaPrompt",
+      "name": "Build Meta Prompt",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [1580, 80],
+      "parameters": {
+        "functionCode": "const topic = $json[\"topic\"];\nconst keywords = $json[\"keywords\"] || \"\";\n\nconst prompt = `Ты помогаешь оформить ролик на YouTube (Shorts) про рыбалку.\nСгенерируй JSON с полями title, description, tags (массив строк), оптимизированными под SEO.\n\nТема: ${topic}\nКлючевые слова: ${keywords}`;\n\nreturn [{ json: { metaPrompt: prompt, topic, keywords } }];"
+      }
+    },
+    {
+      "id": "CallLLMMeta",
+      "name": "Call LLM for Meta",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 2,
+      "position": [1840, 80],
+      "parameters": {
+        "method": "POST",
+        "url": "https://your-llm-endpoint.example.com/meta",
+        "responseFormat": "json",
+        "jsonParameters": true,
+        "bodyParametersJson": "={\"prompt\": $json[\"metaPrompt\"]}"
+      },
+      "credentials": {
+        "httpBasicAuth": "OPTIONAL_LLM_CREDENTIALS"
+      }
+    },
+    {
+      "id": "SaveMetaJson",
+      "name": "Save Meta JSON",
+      "type": "n8n-nodes-base.writeBinaryFile",
+      "typeVersion": 1,
+      "position": [2100, 80],
+      "parameters": {
+        "fileName": "c:/Users/rbazyleu/Documents/n8n/Рыболовный/runtime/video_meta.json",
+        "fileContent": "={{ JSON.stringify($json, null, 2) }}"
+      }
+    },
+    {
+      "id": "ManualReview",
+      "name": "Manual Review (Stop Here)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [2620, 300],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "Schedule": {
+      "main": [
+        [
+          {
+            "node": "Read Topics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Topics": {
+      "main": [
+        [
+          {
+            "node": "Pick First Idea Topic",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick First Idea Topic": {
+      "main": [
+        [
+          {
+            "node": "Mark Topic In Progress",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Build Script Prompt",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Build Meta Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Script Prompt": {
+      "main": [
+        [
+          {
+            "node": "Call LLM for Script",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call LLM for Script": {
+      "main": [
+        [
+          {
+            "node": "Normalize Script JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Script JSON": {
+      "main": [
+        [
+          {
+            "node": "Build TTS Request",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prepare Assets JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build TTS Request": {
+      "main": [
+        [
+          {
+            "node": "Call TTS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Assets JSON": {
+      "main": [
+        [
+          {
+            "node": "Write Assets JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call TTS": {
+      "main": [
+        [
+          {
+            "node": "Execute Video Renderer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Video Renderer": {
+      "main": [
+        [
+          {
+            "node": "Manual Review (Stop Here)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Meta Prompt": {
+      "main": [
+        [
+          {
+            "node": "Call LLM for Meta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call LLM for Meta": {
+      "main": [
+        [
+          {
+            "node": "Save Meta JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "pinData": {},
+  "version": 2
+}
+
