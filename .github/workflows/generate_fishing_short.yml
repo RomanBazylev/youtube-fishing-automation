@@ -32,7 +32,9 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg fonts-dejavu-core fonts-dejavu-extra
+          sudo apt-get install -y ffmpeg imagemagick fonts-dejavu-core fonts-dejavu-extra
+          # Remove ImageMagick PDF/text security policy so moviepy TextClip works
+          sudo sed -i 's/rights="none" pattern="@\*"/rights="read|write" pattern="@*"/' /etc/ImageMagick-6/policy.xml || true
 
       - name: Install Python dependencies
         run: |
