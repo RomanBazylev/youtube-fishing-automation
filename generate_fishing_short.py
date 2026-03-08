@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 import random
@@ -6,14 +7,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
 
+import edge_tts
 import requests
-from gtts import gTTS
 from moviepy.editor import (
     AudioFileClip,
     CompositeAudioClip,
     TextClip,
     VideoFileClip,
     CompositeVideoClip,
+    concatenate_audioclips,
     concatenate_videoclips,
     vfx,
 )
@@ -22,7 +24,12 @@ from moviepy.editor import (
 TARGET_W, TARGET_H = 1080, 1920
 BUILD_DIR = Path("build")
 CLIPS_DIR = BUILD_DIR / "clips"
+AUDIO_DIR = BUILD_DIR / "audio_parts"
 MUSIC_PATH = BUILD_DIR / "music.mp3"
+
+# Голос edge-tts: мужской русский, энергичный
+TTS_VOICE = "ru-RU-DmitryNeural"
+TTS_RATE = "+15%"  # Чуть быстрее для динамики
 
 FISHING_TOPICS = [
     "3 ошибки новичков при ловле щуки",
@@ -57,6 +64,7 @@ class ScriptPart:
 def ensure_dirs() -> None:
     BUILD_DIR.mkdir(parents=True, exist_ok=True)
     CLIPS_DIR.mkdir(parents=True, exist_ok=True)
+    AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 
 
 # ── Фоллбек-сценарий ──────────────────────────────────────────────────
@@ -255,19 +263,25 @@ def download_background_music() -> Optional[Path]:
     return None
 
 
-# ── TTS ────────────────────────────────────────────────────────────────
-def build_tts_audio(parts: List[ScriptPart]) -> Path:
-    text = " ".join(p.text for p in parts)
-    tts = gTTS(text=text, lang="ru")
-    audio_path = BUILD_DIR / "voice.mp3"
-    tts.save(str(audio_path))
-    return audio_path
+# ── TTS (edge-tts, по-фразово) ────────────────────────────────────────
+async def _generate_part_audio(text: str, out_path: Path) -> None:
+    communicate = edge_tts.Communicate(text, TTS_VOICE, rate=TTS_RATE)
+    await communicate.save(str(out_path))
+
+
+def build_tts_per_part(parts: List[ScriptPart]) -> List[Path]:
+    """Генерирует отдельный mp3 для каждой фразы — идеальная синхронизация."""
+    audio_paths: List[Path] = []
+    for i, part in enumerate(parts):
+        out = AUDIO_DIR / f"part_{i}.mp3"
+        asyncio.run(_generate_part_audio(part.text, out))
+        audio_paths.append(out)
+    return audio_paths
 
 
 # ── Сборка видео ──────────────────────────────────────────────────────
 def _fit_clip_to_frame(clip: VideoFileClip, duration: float) -> VideoFileClip:
     """Подрезает/зацикливает клип до нужной длительности и кропит в 9:16."""
-    # Случайное окно по времени
     if clip.duration > duration + 0.5:
         max_start = clip.duration - duration
         start = random.uniform(0, max_start)
@@ -275,31 +289,52 @@ def _fit_clip_to_frame(clip: VideoFileClip, duration: float) -> VideoFileClip:
     else:
         segment = clip.fx(vfx.loop, duration=duration)
 
-    # Масштабируем так, чтобы полностью покрыть TARGET_W x TARGET_H, а потом кропим центр
+    # Масштабируем с запасом +10% для Ken Burns, потом кропим центр
+    margin = 1.10
     src_ratio = segment.w / segment.h
     target_ratio = TARGET_W / TARGET_H
     if src_ratio > target_ratio:
-        # Видео шире чем нужно — скейлим по высоте, кропим по ширине
-        segment = segment.resize(height=TARGET_H)
-        x_center = segment.w / 2
-        segment = segment.crop(
-            x_center=x_center, y_center=TARGET_H / 2,
-            width=TARGET_W, height=TARGET_H,
-        )
+        segment = segment.resize(height=int(TARGET_H * margin))
     else:
-        # Видео уже чем нужно — скейлим по ширине, кропим по высоте
-        segment = segment.resize(width=TARGET_W)
-        y_center = segment.h / 2
-        segment = segment.crop(
-            x_center=TARGET_W / 2, y_center=y_center,
-            width=TARGET_W, height=TARGET_H,
-        )
+        segment = segment.resize(width=int(TARGET_W * margin))
+
+    # Кропим точно в 9:16
+    segment = segment.crop(
+        x_center=segment.w / 2, y_center=segment.h / 2,
+        width=TARGET_W, height=TARGET_H,
+    )
     return segment
 
 
-def _make_subtitle(text: str, duration: float) -> TextClip:
-    """Субтитр с обводкой и тенью — читаем даже на ярком фоне."""
-    # Фон-подложка для текста (чёрный текст = тень, сдвинутый на 3px)
+def _apply_ken_burns(clip, duration: float):
+    """Медленный zoom-in или zoom-out для динамики кадра."""
+    direction = random.choice(["in", "out"])
+    start_scale = 1.0
+    end_scale = random.uniform(1.06, 1.12)
+    if direction == "out":
+        start_scale, end_scale = end_scale, start_scale
+
+    def make_frame(get_frame, t):
+        progress = t / max(duration, 0.01)
+        scale = start_scale + (end_scale - start_scale) * progress
+        frame = get_frame(t)
+        h, w = frame.shape[:2]
+        new_h, new_w = int(h * scale), int(w * scale)
+        from PIL import Image
+        import numpy as np
+        img = Image.fromarray(frame)
+        img = img.resize((new_w, new_h), Image.LANCZOS)
+        arr = np.array(img)
+        # Кропим обратно к исходному размеру из центра
+        y_off = (new_h - h) // 2
+        x_off = (new_w - w) // 2
+        return arr[y_off:y_off + h, x_off:x_off + w]
+
+    return clip.fl(make_frame)
+
+
+def _make_subtitle(text: str, duration: float) -> list:
+    """Субтитр с обводкой — читаем на любом фоне."""
     shadow = (
         TextClip(
             text,
@@ -314,7 +349,6 @@ def _make_subtitle(text: str, duration: float) -> TextClip:
         .set_position(("center", 0.72), relative=True)
         .set_duration(duration)
     )
-    # Основной белый текст поверх тени
     main_txt = (
         TextClip(
             text,
@@ -335,60 +369,55 @@ def _make_subtitle(text: str, duration: float) -> TextClip:
 def build_video(
     parts: List[ScriptPart],
     clip_paths: List[Path],
-    audio_path: Path,
+    audio_parts: List[Path],
     music_path: Optional[Path],
 ) -> Path:
-    voice = AudioFileClip(str(audio_path))
-    voice_duration = voice.duration
-
     if not clip_paths:
         raise RuntimeError("No video clips downloaded. Provide PEXELS_API_KEY or PIXABAY_API_KEY.")
 
-    # Длительность каждого кадра пропорционально длине фразы
-    raw_durations = []
-    for part in parts:
-        approx = len(part.text) / 14.0
-        raw = min(max(approx, 2.0), 5.0)
-        raw_durations.append(raw)
+    # Загружаем аудио каждой фразы — длительность точная
+    part_audios = [AudioFileClip(str(p)) for p in audio_parts]
+    durations = [a.duration for a in part_audios]
+    total_duration = sum(durations)
 
-    total_raw = sum(raw_durations) or 1.0
-    scale = voice_duration / total_raw
-    durations = [d * scale for d in raw_durations]
+    # Объединяем аудио-фразы в один трек
+    voice = concatenate_audioclips(part_audios)
 
-    # Перемешиваем клипы для разнообразия кадров
+    # Перемешиваем клипы для разнообразия
     shuffled_clips = clip_paths[:]
     random.shuffle(shuffled_clips)
 
-    source_clips = []  # для корректного закрытия
+    source_clips = []
     video_clips = []
     for i, part in enumerate(parts):
         src_path = shuffled_clips[i % len(shuffled_clips)]
         clip = VideoFileClip(str(src_path))
         source_clips.append(clip)
-        target_duration = durations[i]
+        dur = durations[i]
 
-        fitted = _fit_clip_to_frame(clip, target_duration)
+        fitted = _fit_clip_to_frame(clip, dur)
+        fitted = _apply_ken_burns(fitted, dur)
 
-        subtitle_layers = _make_subtitle(part.text, target_duration)
+        subtitle_layers = _make_subtitle(part.text, dur)
 
         composed = CompositeVideoClip(
             [fitted] + subtitle_layers,
             size=(TARGET_W, TARGET_H),
-        ).set_duration(target_duration)
+        ).set_duration(dur)
         video_clips.append(composed)
 
-    video = concatenate_videoclips(video_clips, method="compose").set_duration(voice_duration)
+    video = concatenate_videoclips(video_clips, method="compose").set_duration(total_duration)
 
     # Аудио: голос + приглушённая фоновая музыка
     audio_tracks = [voice]
     bg = None
     if music_path and music_path.is_file():
         bg = AudioFileClip(str(music_path)).volumex(0.12)
-        bg = bg.set_duration(video.duration)
+        bg = bg.set_duration(total_duration)
         audio_tracks.append(bg)
 
     final_audio = CompositeAudioClip(audio_tracks)
-    video = video.set_audio(final_audio).set_duration(voice_duration)
+    video = video.set_audio(final_audio).set_duration(total_duration)
 
     output_path = BUILD_DIR / "output_fishing_short.mp4"
     video.write_videofile(
@@ -405,6 +434,8 @@ def build_video(
     voice.close()
     if bg is not None:
         bg.close()
+    for a in part_audios:
+        a.close()
     for vc in video_clips:
         vc.close()
     for sc in source_clips:
@@ -427,14 +458,17 @@ def main() -> None:
     clip_paths += download_pixabay_clips()
     print(f"  Downloaded {len(clip_paths)} clips")
 
-    print("[3/5] Generating TTS audio...")
-    audio_path = build_tts_audio(parts)
+    print("[3/5] Generating TTS audio (edge-tts, per-part)...")
+    audio_parts = build_tts_per_part(parts)
+    for i, ap in enumerate(audio_parts):
+        dur = AudioFileClip(str(ap)).duration
+        print(f"  Part {i+1}: {dur:.1f}s")
 
     print("[4/5] Downloading background music...")
     music_path = download_background_music()
 
     print("[5/5] Building final video...")
-    output = build_video(parts, clip_paths, audio_path, music_path)
+    output = build_video(parts, clip_paths, audio_parts, music_path)
     print(f"Done! Video saved to: {output}")
 
 

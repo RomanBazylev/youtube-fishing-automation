@@ -1,6 +1,7 @@
 moviepy>=1.0.3,<2.0
 Pillow>=9.0,<10.0
 requests>=2.31.0
-gTTS>=2.5.1
+edge-tts>=6.1.0
+numpy
 
 
