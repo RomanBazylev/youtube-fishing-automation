@@ -76,15 +76,29 @@ class ScriptPart:
     text: str
 
 
+@dataclass
+class VideoMetadata:
+    title: str
+    description: str
+    tags: List[str]
+
+
 def ensure_dirs() -> None:
     BUILD_DIR.mkdir(parents=True, exist_ok=True)
     CLIPS_DIR.mkdir(parents=True, exist_ok=True)
     AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 
 
+FALLBACK_METADATA = VideoMetadata(
+    title="3 ошибки новичков при ловле щуки! #рыбалка #shorts",
+    description="Узнай 3 главные ошибки, которые убивают клёв щуки. Сохрани и не повторяй!\n\n#рыбалка #щука #fishing #shorts #лайфхак",
+    tags=["рыбалка", "щука", "fishing", "shorts", "лайфхак", "ошибки", "спиннинг"],
+)
+
+
 # ── Фоллбек-сценарий ──────────────────────────────────────────────────
-def _fallback_script() -> List[ScriptPart]:
-    return [
+def _fallback_script() -> tuple:
+    parts = [
         ScriptPart("3 ошибки новичков при ловле щуки!"),
         ScriptPart("Первая — толстая леска."),
         ScriptPart("Она убивает чувствительность снасти."),
@@ -94,9 +108,10 @@ def _fallback_script() -> List[ScriptPart]:
         ScriptPart("Бровки, коряжник и свалы — вот где трофеи."),
         ScriptPart("Сохрани и подпишись!"),
     ]
+    return parts, FALLBACK_METADATA
 
 
-def call_groq_for_script() -> List[ScriptPart]:
+def call_groq_for_script() -> tuple:
     api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
         return _fallback_script()
@@ -137,6 +152,10 @@ def call_groq_for_script() -> List[ScriptPart]:
 
 Формат — строго JSON:
 {{
+  "title": "Цепляющий заголовок для YouTube (до 70 символов) с эмодзи и #shorts",
+  "description": "Описание для YouTube (2–3 строки) с хештегами",
+  "tags": ["рыбалка", "fishing", "shorts", ...ещё 4–7 тематических тегов],
+  "pexels_queries": ["3–5 коротких англ. запросов для поиска видео на Pexels, релевантных теме"],
   "parts": [
     {{ "text": "..." }}
   ]
@@ -163,11 +182,25 @@ def call_groq_for_script() -> List[ScriptPart]:
         data = json.loads(content)
         parts = [ScriptPart(p["text"]) for p in data.get("parts", []) if p.get("text")]
         if len(parts) >= 3:
-            return parts
+            metadata = VideoMetadata(
+                title=data.get("title", "")[:100] or "Рыбалка: секреты и лайфхаки #shorts",
+                description=data.get("description", "") or "Смотри до конца! #рыбалка #fishing #shorts",
+                tags=data.get("tags", ["рыбалка", "fishing", "shorts"]),
+            )
+            # Сохраняем LLM-сгенерированные запросы для Pexels
+            llm_queries = data.get("pexels_queries", [])
+            if llm_queries:
+                global _llm_pexels_queries
+                _llm_pexels_queries = [q for q in llm_queries if isinstance(q, str)][:5]
+            return parts, metadata
     except Exception as exc:
         print(f"[WARN] Groq API error, using fallback script: {exc}")
 
     return _fallback_script()
+
+
+# Глобальная переменная для LLM-сгенерированных запросов Pexels
+_llm_pexels_queries: List[str] = []
 
 
 # ── Скачивание клипов ─────────────────────────────────────────────────
@@ -191,13 +224,18 @@ def _pexels_best_file(video_files: list) -> Optional[dict]:
 
 
 def download_pexels_clips(target_count: int = 10) -> List[Path]:
-    """Download clips using DIFFERENT search queries for visual diversity."""
+    """Download clips using LLM-generated + fallback queries for visual diversity."""
     api_key = os.getenv("PEXELS_API_KEY")
     if not api_key:
         return []
 
     headers = {"Authorization": api_key}
-    queries = random.sample(PEXELS_QUERIES, min(target_count, len(PEXELS_QUERIES)))
+    # Приоритет: LLM-сгенерированные запросы, потом дополняем из дефолтных
+    all_queries = list(_llm_pexels_queries)
+    extra = [q for q in PEXELS_QUERIES if q not in all_queries]
+    random.shuffle(extra)
+    all_queries.extend(extra)
+    queries = all_queries[:target_count]
     result_paths: List[Path] = []
     seen_ids: set = set()
     clip_idx = 0
@@ -295,6 +333,8 @@ def download_background_music() -> Optional[Path]:
     candidate_urls = [
         "https://files.freemusicarchive.org/storage-freemusicarchive-org/music/no_curator/Komiku/Its_time_for_adventure/Komiku_-_05_-_Friends.mp3",
         "https://files.freemusicarchive.org/storage-freemusicarchive-org/music/no_curator/Podington_Bear/Daydream/Podington_Bear_-_Daydream.mp3",
+        "https://files.freemusicarchive.org/storage-freemusicarchive-org/music/ccCommunity/Chad_Crouch/Arps/Chad_Crouch_-_Shipping_Lanes.mp3",
+        "https://files.freemusicarchive.org/storage-freemusicarchive-org/music/no_curator/Lobo_Loco/Folkish_things/Lobo_Loco_-_01_-_Acoustic_Dreams_ID_1199.mp3",
     ]
 
     for url in random.sample(candidate_urls, len(candidate_urls)):
@@ -307,19 +347,22 @@ def download_background_music() -> Optional[Path]:
 
 
 # ── TTS (edge-tts, по-фразово) ────────────────────────────────────────
-async def _generate_part_audio(text: str, out_path: Path) -> None:
-    communicate = edge_tts.Communicate(text, TTS_VOICE, rate=TTS_RATE)
-    await communicate.save(str(out_path))
+async def _generate_all_audio(parts: List[ScriptPart]) -> List[Path]:
+    """Генерирует все аудио-фразы параллельно через gather."""
+    audio_paths: List[Path] = []
+    tasks = []
+    for i, part in enumerate(parts):
+        out = AUDIO_DIR / f"part_{i}.mp3"
+        audio_paths.append(out)
+        comm = edge_tts.Communicate(part.text, TTS_VOICE, rate=TTS_RATE)
+        tasks.append(comm.save(str(out)))
+    await asyncio.gather(*tasks)
+    return audio_paths
 
 
 def build_tts_per_part(parts: List[ScriptPart]) -> List[Path]:
     """Генерирует отдельный mp3 для каждой фразы — идеальная синхронизация."""
-    audio_paths: List[Path] = []
-    for i, part in enumerate(parts):
-        out = AUDIO_DIR / f"part_{i}.mp3"
-        asyncio.run(_generate_part_audio(part.text, out))
-        audio_paths.append(out)
-    return audio_paths
+    return asyncio.run(_generate_all_audio(parts))
 
 
 # ── Сборка видео ──────────────────────────────────────────────────────
@@ -454,7 +497,17 @@ def build_video(
         ).set_duration(dur)
         video_clips.append(composed)
 
-    video = concatenate_videoclips(video_clips, method="compose").set_duration(total_duration)
+    # Crossfade 0.25 сек между клипами для плавных переходов
+    CROSSFADE = 0.25
+    if len(video_clips) > 1:
+        crossfaded = [video_clips[0]]
+        for vc in video_clips[1:]:
+            crossfaded.append(vc.crossfadein(CROSSFADE))
+        video = concatenate_videoclips(crossfaded, padding=-CROSSFADE, method="compose")
+        total_duration = total_duration - CROSSFADE * (len(video_clips) - 1)
+        video = video.set_duration(total_duration)
+    else:
+        video = concatenate_videoclips(video_clips, method="compose").set_duration(total_duration)
 
     # Аудио: голос + приглушённая фоновая музыка
     audio_tracks = [voice]
@@ -493,13 +546,29 @@ def build_video(
     return output_path
 
 
+def _save_metadata(meta: VideoMetadata) -> None:
+    """Сохраняет метаданные видео в JSON для будущей автозагрузки."""
+    meta_path = BUILD_DIR / "metadata.json"
+    meta_path.write_text(
+        json.dumps(
+            {"title": meta.title, "description": meta.description, "tags": meta.tags},
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    print(f"  Metadata saved to {meta_path}")
+
+
 def main() -> None:
     ensure_dirs()
     print("[1/5] Generating script...")
-    parts = call_groq_for_script()
+    parts, metadata = call_groq_for_script()
     print(f"  Script: {len(parts)} parts")
+    print(f"  Title: {metadata.title}")
     for i, p in enumerate(parts, 1):
         print(f"  [{i}] {p.text}")
+    _save_metadata(metadata)
 
     print("[2/5] Downloading video clips...")
     clip_paths = download_pexels_clips()
@@ -509,8 +578,9 @@ def main() -> None:
     print("[3/5] Generating TTS audio (edge-tts, per-part)...")
     audio_parts = build_tts_per_part(parts)
     for i, ap in enumerate(audio_parts):
-        dur = AudioFileClip(str(ap)).duration
-        print(f"  Part {i+1}: {dur:.1f}s")
+        a = AudioFileClip(str(ap))
+        print(f"  Part {i+1}: {a.duration:.1f}s")
+        a.close()
 
     print("[4/5] Downloading background music...")
     music_path = download_background_music()
