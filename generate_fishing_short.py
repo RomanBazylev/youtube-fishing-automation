@@ -133,6 +133,47 @@ def download_pexels_clips(max_clips: int = 3) -> List[Path]:
     return result_paths
 
 
+def download_pixabay_clips(max_clips: int = 3) -> List[Path]:
+    api_key = os.getenv("PIXABAY_API_KEY")
+    if not api_key:
+        return []
+
+    params = {
+        "key": api_key,
+        "q": "fishing",
+        "per_page": max_clips,
+        "safesearch": "true",
+        "order": "popular",
+        # videos API по умолчанию отдаёт несколько размеров; ориентацию подберём по размеру
+    }
+    resp = requests.get(
+        "https://pixabay.com/api/videos/",
+        params=params,
+        timeout=30,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    result_paths: List[Path] = []
+
+    for idx, hit in enumerate(data.get("hits", [])[:max_clips], start=1):
+        videos = hit.get("videos") or {}
+        # берём medium или small, если medium нет
+        cand = videos.get("medium") or videos.get("small") or videos.get("large")
+        if not cand or "url" not in cand:
+            continue
+        url = cand["url"]
+        clip_path = CLIPS_DIR / f"pixabay_{idx}.mp4"
+        r = requests.get(url, stream=True, timeout=60)
+        r.raise_for_status()
+        with clip_path.open("wb") as f:
+            for chunk in r.iter_content(chunk_size=8192):
+                if chunk:
+                    f.write(chunk)
+        result_paths.append(clip_path)
+
+    return result_paths
+
+
 def download_background_music() -> Optional[Path]:
     """
     Скачивает один бесплатный трек из заранее заданного списка URL.
@@ -270,6 +311,7 @@ def main() -> None:
     ensure_dirs()
     parts = call_groq_for_script()
     clip_paths = download_pexels_clips()
+    clip_paths += download_pixabay_clips()
     audio_path = build_tts_audio(parts)
     music_path = download_background_music()
     output = build_video(parts, clip_paths, audio_path, music_path)
