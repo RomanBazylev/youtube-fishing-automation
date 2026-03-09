@@ -3,7 +3,7 @@ name: Generate Fishing Short
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 18 * * *" # каждый день в 18:00 UTC
+    - cron: "0 */4 * * *" # каждые 4 часа
 
 jobs:
   generate:
