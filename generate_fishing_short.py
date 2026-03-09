@@ -179,6 +179,16 @@ def call_groq_for_script() -> tuple:
     try:
         resp = requests.post(url, headers=headers, json=body, timeout=30)
         resp.raise_for_status()
+    except Exception as exc:
+        print(f"[WARN] Groq API attempt 1 failed: {exc}, retrying...")
+        try:
+            resp = requests.post(url, headers=headers, json=body, timeout=45)
+            resp.raise_for_status()
+        except Exception as exc2:
+            print(f"[WARN] Groq API attempt 2 failed: {exc2}, using fallback")
+            return _fallback_script()
+
+    try:
         content = resp.json()["choices"][0]["message"]["content"]
         # Убираем markdown-обёртку ```json ... ```, если LLM её добавил
         content = re.sub(r"^```(?:json)?\s*", "", content.strip())
