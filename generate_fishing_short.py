@@ -124,17 +124,71 @@ FALLBACK_METADATA = VideoMetadata(
 )
 
 
+# Фразы-наполнители, которые делают контент слабым
+_FILLER_PATTERNS = [
+    "мой день начинается", "я не ожидал", "это невероятно", "это было круто",
+    "ты не поверишь", "это удивительно", "я был в шоке", "это работает",
+    "попробуй сам", "ты должен это знать", "слушай внимательно",
+    "сейчас расскажу", "давай разберёмся", "многие не знают",
+]
+
+
+def _validate_script(parts: List[ScriptPart]) -> bool:
+    """Проверяет качество сценария. Возвращает True если годный."""
+    if len(parts) < 8:
+        print(f"[QUALITY] Rejected: too few parts ({len(parts)}, need >=8)")
+        return False
+
+    # Средняя длина фразы в словах — минимум 8 слов
+    avg_words = sum(len(p.text.split()) for p in parts) / len(parts)
+    if avg_words < 7:
+        print(f"[QUALITY] Rejected: avg words too low ({avg_words:.1f}, need >=7)")
+        return False
+
+    # Проверяем на фразы-наполнители
+    filler_count = 0
+    for part in parts:
+        text_lower = part.text.lower()
+        for filler in _FILLER_PATTERNS:
+            if filler in text_lower:
+                filler_count += 1
+                print(f"[QUALITY] Filler detected: '{part.text}'")
+                break
+    if filler_count > 2:
+        print(f"[QUALITY] Rejected: too many fillers ({filler_count})")
+        return False
+
+    # Проверяем что хотя бы 60% фраз содержат конкретику (цифры или спец-термины)
+    concrete_markers = re.compile(
+        r'\d|градус|метр|кило|грамм|миллиметр|секунд|минут|'
+        r'блесн|воблер|силикон|леск|крючок|поводок|'
+        r'глубин|температур|дно|бровк|коряж|'
+        r'ставь|бросай|делай|попробуй|используй|меняй',
+        re.IGNORECASE,
+    )
+    concrete_count = sum(1 for p in parts if concrete_markers.search(p.text))
+    ratio = concrete_count / len(parts)
+    if ratio < 0.4:
+        print(f"[QUALITY] Rejected: not enough concrete content ({ratio:.0%}, need >=40%)")
+        return False
+
+    print(f"[QUALITY] Passed: {len(parts)} parts, avg {avg_words:.1f} words, {ratio:.0%} concrete")
+    return True
+
+
 # ── Фоллбек-сценарий ──────────────────────────────────────────────────
 def _fallback_script() -> tuple:
     parts = [
-        ScriptPart("Почему щука сходит у берега? Рассказываю три главные ошибки."),
-        ScriptPart("Первая — слишком толстая леска. Она убивает чувствительность, и ты не чувствуешь поклёвку."),
-        ScriptPart("Ставь флюорокарбон ноль двадцать — ноль двадцать пять. Щука его не видит."),
-        ScriptPart("Вторая ошибка — слишком быстрая проводка. Щука в холодной воде просто не успевает атаковать."),
-        ScriptPart("Делай паузы по две-три секунды между рывками. Именно на паузе щука бьёт."),
-        ScriptPart("Третья — ты игнорируешь рельеф дна. Бровки, коряжник, свалы — щука стоит именно там."),
-        ScriptPart("Найди на эхолоте перепад глубины и кидай точно на границу. Результат будет сразу."),
-        ScriptPart("Попробуй эти советы на ближайшей рыбалке и напиши в комментариях, работает ли. Подпишись!"),
+        ScriptPart("Девяносто процентов рыбаков делают эти три ошибки при ловле щуки на спиннинг."),
+        ScriptPart("Первая — слишком толстая леска. Ноль тридцать пять и выше убивает всю чувствительность."),
+        ScriptPart("Ты просто не чувствуешь поклёвку, и щука выплёвывает приманку до подсечки."),
+        ScriptPart("Ставь флюорокарбон ноль двадцать — ноль двадцать пять. В прозрачной воде щука его не видит."),
+        ScriptPart("Вторая ошибка — слишком быстрая проводка. Осенью вода ниже десяти градусов."),
+        ScriptPart("Щука в холодной воде становится вялой и просто не успевает атаковать."),
+        ScriptPart("Делай паузы по две-три секунды между рывками. Именно на паузе щука бьёт в восьмидесяти процентах случаев."),
+        ScriptPart("Третья — ты кидаешь куда попало. Щука стоит у бровок, коряжника и перепадов глубины."),
+        ScriptPart("Найди на эхолоте свал с трёх на пять метров и кидай точно на границу."),
+        ScriptPart("Попробуй эти три правила на ближайшей рыбалке. Напиши в комментариях, сработало ли. Подпишись!"),
     ]
     return parts, FALLBACK_METADATA
 
@@ -224,18 +278,20 @@ def call_groq_for_script() -> tuple:
         content = re.sub(r"\s*```$", "", content.strip())
         data = json.loads(content)
         parts = [ScriptPart(p["text"]) for p in data.get("parts", []) if p.get("text")]
-        if len(parts) >= 6:
-            metadata = VideoMetadata(
-                title=data.get("title", "")[:100] or "Рыбалка: секреты и лайфхаки #shorts",
-                description=data.get("description", "") or "Смотри до конца! #рыбалка #fishing #shorts",
-                tags=data.get("tags", ["рыбалка", "fishing", "shorts"]),
-            )
-            # Сохраняем LLM-сгенерированные запросы для Pexels
-            llm_queries = data.get("pexels_queries", [])
-            if llm_queries:
-                global _llm_pexels_queries
-                _llm_pexels_queries = [q for q in llm_queries if isinstance(q, str)][:5]
+        metadata = VideoMetadata(
+            title=data.get("title", "")[:100] or "Рыбалка: секреты и лайфхаки #shorts",
+            description=data.get("description", "") or "Смотри до конца! #рыбалка #fishing #shorts",
+            tags=data.get("tags", ["рыбалка", "fishing", "shorts"]),
+        )
+        # Сохраняем LLM-сгенерированные запросы для Pexels
+        llm_queries = data.get("pexels_queries", [])
+        if llm_queries:
+            global _llm_pexels_queries
+            _llm_pexels_queries = [q for q in llm_queries if isinstance(q, str)][:5]
+
+        if _validate_script(parts):
             return parts, metadata
+        print("[WARN] LLM output failed quality check, using fallback")
     except Exception as exc:
         print(f"[WARN] Groq API error, using fallback script: {exc}")
 
@@ -266,7 +322,7 @@ def _pexels_best_file(video_files: list) -> Optional[dict]:
     return None
 
 
-def download_pexels_clips(target_count: int = 10) -> List[Path]:
+def download_pexels_clips(target_count: int = 14) -> List[Path]:
     """Download clips using LLM-generated + fallback queries for visual diversity."""
     api_key = os.getenv("PEXELS_API_KEY")
     if not api_key:
@@ -475,29 +531,29 @@ def _make_subtitle(text: str, duration: float) -> list:
     shadow = (
         TextClip(
             text,
-            fontsize=62,
+            fontsize=72,
             color="black",
             font="DejaVu-Sans-Bold",
             method="caption",
-            size=(TARGET_W - 100, None),
+            size=(TARGET_W - 80, None),
             stroke_color="black",
-            stroke_width=4,
+            stroke_width=5,
         )
-        .set_position(("center", 0.72), relative=True)
+        .set_position(("center", 0.70), relative=True)
         .set_duration(duration)
     )
     main_txt = (
         TextClip(
             text,
-            fontsize=62,
+            fontsize=72,
             color="white",
             font="DejaVu-Sans-Bold",
             method="caption",
-            size=(TARGET_W - 100, None),
+            size=(TARGET_W - 80, None),
             stroke_color="black",
-            stroke_width=2,
+            stroke_width=3,
         )
-        .set_position(("center", 0.72), relative=True)
+        .set_position(("center", 0.70), relative=True)
         .set_duration(duration)
     )
     return [shadow, main_txt]
@@ -615,8 +671,13 @@ def main() -> None:
     parts, metadata = call_groq_for_script()
     print(f"  Script: {len(parts)} parts")
     print(f"  Title: {metadata.title}")
+    total_words = 0
     for i, p in enumerate(parts, 1):
-        print(f"  [{i}] {p.text}")
+        wc = len(p.text.split())
+        total_words += wc
+        print(f"  [{i}] ({wc}w) {p.text}")
+    est_duration = total_words / 2.3  # ~2.3 слова/сек для русского TTS
+    print(f"  Estimated duration: ~{est_duration:.0f}s ({total_words} words)")
     _save_metadata(metadata)
 
     print("[2/5] Downloading video clips...")
