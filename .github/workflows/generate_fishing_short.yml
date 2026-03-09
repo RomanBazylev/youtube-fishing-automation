@@ -13,6 +13,10 @@ jobs:
       GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
       PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
       PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+      YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+      YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+      YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+      YOUTUBE_PRIVACY: ${{ secrets.YOUTUBE_PRIVACY }}
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -44,6 +48,11 @@ jobs:
       - name: Generate fishing short video
         run: |
           python generate_fishing_short.py
+
+      - name: Upload to YouTube
+        if: success()
+        run: |
+          python upload_youtube.py
 
       - name: Upload video artifact
         if: always()
