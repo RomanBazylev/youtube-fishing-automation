@@ -3,7 +3,9 @@ import json
 import os
 import random
 import re
+import shutil
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
@@ -30,10 +32,15 @@ BUILD_DIR = Path("build")
 CLIPS_DIR = BUILD_DIR / "clips"
 AUDIO_DIR = BUILD_DIR / "audio_parts"
 MUSIC_PATH = BUILD_DIR / "music.mp3"
+HISTORY_PATH = BUILD_DIR / "topic_history.json"
+MAX_HISTORY = 8  # remember last N fish+method combos to avoid repeats
 
-# Голос edge-tts: мужской русский, энергичный
-TTS_VOICE = "ru-RU-DmitryNeural"
-TTS_RATE = "+10%"  # Чуть быстрее для динамики, но не слишком
+# Голос edge-tts: ротация для разнообразия
+TTS_VOICES = [
+    "ru-RU-DmitryNeural",
+    "ru-RU-SvetlanaNeural",
+]
+TTS_RATE_OPTIONS = ["+8%", "+10%", "+12%"]
 
 # Словарь замен для правильного произношения TTS
 # edge-tts плохо произносит рыболовные термины (англицизмы, спец. слова)
@@ -96,6 +103,12 @@ PEXELS_QUERIES = [
     "river nature",
     "lake sunrise",
     "angler fishing",
+    "fish catch release",
+    "mountain stream trout",
+    "winter fishing ice",
+    "night fishing campfire",
+    "fish jumping water",
+    "forest river peaceful",
 ]
 
 
@@ -111,6 +124,51 @@ class VideoMetadata:
     tags: List[str]
 
 
+# ── Topic deduplication ────────────────────────────────────────────────
+
+def _load_topic_history() -> list:
+    if HISTORY_PATH.exists():
+        try:
+            return json.loads(HISTORY_PATH.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return []
+
+
+def _save_topic_history(history: list) -> None:
+    HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
+    HISTORY_PATH.write_text(json.dumps(history, ensure_ascii=False), encoding="utf-8")
+
+
+def _pick_unique_combo() -> tuple:
+    """Pick a fish + method combo not recently used."""
+    history = _load_topic_history()
+    attempts = 0
+    while attempts < 20:
+        fish = random.choice(FISH_TARGETS)
+        method = random.choice(FISHING_METHODS)
+        key = f"{fish}|{method}"
+        if key not in history:
+            history.append(key)
+            if len(history) > MAX_HISTORY:
+                history = history[-MAX_HISTORY:]
+            _save_topic_history(history)
+            return fish, method
+        attempts += 1
+    # If all combos exhausted, clear history and pick fresh
+    fish = random.choice(FISH_TARGETS)
+    method = random.choice(FISHING_METHODS)
+    _save_topic_history([f"{fish}|{method}"])
+    return fish, method
+
+
+def _clean_build_dir() -> None:
+    """Remove previous build artifacts to save disk space."""
+    if BUILD_DIR.exists():
+        shutil.rmtree(BUILD_DIR, ignore_errors=True)
+        print("  Cleaned previous build directory")
+
+
 def ensure_dirs() -> None:
     BUILD_DIR.mkdir(parents=True, exist_ok=True)
     CLIPS_DIR.mkdir(parents=True, exist_ok=True)
@@ -122,6 +180,102 @@ FALLBACK_METADATA = VideoMetadata(
     description="Узнай 3 главные ошибки при ловле щуки на спиннинг. Сохрани и не повторяй!\n\n#рыбалка #щука #спиннинг #fishing #shorts #лайфхак",
     tags=["рыбалка", "щука", "спиннинг", "fishing", "shorts", "лайфхак"],
 )
+
+_CORE_TAGS = ["рыбалка", "fishing", "shorts", "лайфхак", "рыболов"]
+
+_DESCRIPTION_FOOTER = (
+    "\n\n#рыбалка #fishing #shorts #лайфхак #рыболов"
+    "\nПодпишись — рыбацкие секреты каждый день!"
+)
+
+
+def _enrich_metadata(meta: VideoMetadata) -> VideoMetadata:
+    """Ensure title has #shorts, tags have core keywords."""
+    title = meta.title
+    if "#shorts" not in title.lower():
+        title = title.rstrip() + " #shorts"
+
+    tags = list(meta.tags)
+    for t in _CORE_TAGS:
+        if t not in tags:
+            tags.append(t)
+
+    desc = meta.description
+    if "#рыбалка" not in desc.lower():
+        desc = desc + _DESCRIPTION_FOOTER
+
+    return VideoMetadata(title=title[:100], description=desc, tags=tags)
+
+
+_FALLBACK_POOL = [
+    [
+        ScriptPart("Девяносто процентов рыбаков делают эти три ошибки при ловле щуки на спиннинг."),
+        ScriptPart("Первая — слишком толстая леска. Ноль тридцать пять и выше убивает всю чувствительность."),
+        ScriptPart("Ты просто не чувствуешь поклёвку, и щука выплёвывает приманку до подсечки."),
+        ScriptPart("Ставь флюорокарбон ноль двадцать — ноль двадцать пять. В прозрачной воде щука его не видит."),
+        ScriptPart("Вторая ошибка — слишком быстрая проводка. Осенью вода ниже десяти градусов."),
+        ScriptPart("Щука в холодной воде становится вялой и просто не успевает атаковать."),
+        ScriptPart("Делай паузы по две-три секунды между рывками. Именно на паузе щука бьёт в восьмидесяти процентах случаев."),
+        ScriptPart("Третья — ты кидаешь куда попало. Щука стоит у бровок, коряжника и перепадов глубины."),
+        ScriptPart("Найди на эхолоте свал с трёх на пять метров и кидай точно на границу."),
+        ScriptPart("Попробуй эти три правила на ближайшей рыбалке. Напиши в комментариях, сработало ли. Подпишись!"),
+    ],
+    [
+        ScriptPart("Окунь клюёт каждый заброс, если знаешь одну хитрость с проводкой."),
+        ScriptPart("Отводной поводок — восемьдесят сантиметров от грузила. Ставь крючок номер два на офсетнике."),
+        ScriptPart("Силиконовый твистер три сантиметра, цвет — перламутр или кислотный зелёный."),
+        ScriptPart("Бросай под углом сорок пять градусов к берегу. Дай грузилу лечь на дно."),
+        ScriptPart("Теперь подтяжка удилищем — пауза две секунды — подмотка слабины."),
+        ScriptPart("Окунь атакует на паузе, когда приманка парит над дном. Не торопись."),
+        ScriptPart("Лучшее время — утро с шести до девяти, когда малёк активен у берега."),
+        ScriptPart("Поклёвка чувствуется как лёгкий тычок. Подсекай резко вверх."),
+        ScriptPart("За два часа с этим монтажом можно поймать двадцать-тридцать окуней. Проверено."),
+        ScriptPart("Попробуй на ближайшей рыбалке и напиши результат в комментариях. Подпишись!"),
+    ],
+    [
+        ScriptPart("Карп весом больше пяти кило прячется в одних и тех же местах. Вот как их найти."),
+        ScriptPart("Ищи бровку — перепад глубины с двух на четыре метра. Маркерным грузом простучи дно."),
+        ScriptPart("Корм — кукуруза плюс пеллетс. Замешай с озёрной водой и слепи шары размером с апельсин."),
+        ScriptPart("Закорми точку тремя-пятью шарами вечером. Утром карп уже будет кормиться на пятне."),
+        ScriptPart("Волосяной монтаж — бойл восемнадцать миллиметров на волосе, крючок номер четыре."),
+        ScriptPart("Поводок из мягкой плетёнки, двадцать сантиметров. Грузило — инлайн, шестьдесят грамм."),
+        ScriptPart("Заброс точно на прикормленное пятно. Ставь удилище на подставку и жди."),
+        ScriptPart("Поклёвка карпа — это резкий загиб сигнализатора. Подсечка плавная, не рвай."),
+        ScriptPart("Вываживай мягко, работай фрикционом. Карп делает три-четыре мощных рывка."),
+        ScriptPart("Этот метод работает на любом водоёме. Напиши свой рекорд в комментариях!"),
+    ],
+    [
+        ScriptPart("Зимняя рыбалка: три приманки, которые ловят когда всё молчит."),
+        ScriptPart("Номер один — мормышка-муравей полтора миллиметра с мотылём. Работает по глухозимью."),
+        ScriptPart("Игра — плавные покачивания с паузами каждые пять секунд. Окунь не устоит."),
+        ScriptPart("Номер два — балансир пять сантиметров. Цвет — окунёвый или кислотный."),
+        ScriptPart("Бросок на дно, потом резкий взмах на тридцать сантиметров и пауза три секунды."),
+        ScriptPart("Щука бьёт именно на падении. Следи за кивком."),
+        ScriptPart("Номер три — блесна-вертикалка серебро. Классика, которая работает десятилетиями."),
+        ScriptPart("Короткие рывки — подброс десять сантиметров, пауза, подброс. Судак обожает."),
+        ScriptPart("Главное правило зимой — не сиди на одной лунке дольше десяти минут. Нет поклёвки — перемещайся."),
+        ScriptPart("Какая приманка твоя любимая зимой? Пиши в комментариях. Подпишись!"),
+    ],
+]
+
+_FALLBACK_META_POOL = [
+    FALLBACK_METADATA,
+    VideoMetadata(
+        title="Окунь на каждый заброс! Секрет проводки 🎣 #shorts",
+        description="Отводной поводок — убийственный монтаж по окуню. Подробная техника!\n\n#рыбалка #окунь #спиннинг #fishing #shorts",
+        tags=["рыбалка", "окунь", "спиннинг", "отводной поводок", "fishing", "shorts"],
+    ),
+    VideoMetadata(
+        title="Как найти карпа 5+ кг? Секрет бровки 🎣 #shorts",
+        description="Карп прячется в одних и тех же местах. Вот как их найти!\n\n#рыбалка #карп #фидер #fishing #shorts",
+        tags=["рыбалка", "карп", "фидер", "бойлы", "fishing", "shorts"],
+    ),
+    VideoMetadata(
+        title="3 приманки для глухозимья — ловят когда всё молчит 🎣 #shorts",
+        description="Зимняя рыбалка когда ничего не клюёт? Эти 3 приманки спасут!\n\n#рыбалка #зимняя #мормышка #балансир #fishing #shorts",
+        tags=["рыбалка", "зимняя рыбалка", "мормышка", "балансир", "fishing", "shorts"],
+    ),
+]
 
 
 # Фразы-наполнители, которые делают контент слабым
@@ -178,19 +332,11 @@ def _validate_script(parts: List[ScriptPart]) -> bool:
 
 # ── Фоллбек-сценарий ──────────────────────────────────────────────────
 def _fallback_script() -> tuple:
-    parts = [
-        ScriptPart("Девяносто процентов рыбаков делают эти три ошибки при ловле щуки на спиннинг."),
-        ScriptPart("Первая — слишком толстая леска. Ноль тридцать пять и выше убивает всю чувствительность."),
-        ScriptPart("Ты просто не чувствуешь поклёвку, и щука выплёвывает приманку до подсечки."),
-        ScriptPart("Ставь флюорокарбон ноль двадцать — ноль двадцать пять. В прозрачной воде щука его не видит."),
-        ScriptPart("Вторая ошибка — слишком быстрая проводка. Осенью вода ниже десяти градусов."),
-        ScriptPart("Щука в холодной воде становится вялой и просто не успевает атаковать."),
-        ScriptPart("Делай паузы по две-три секунды между рывками. Именно на паузе щука бьёт в восьмидесяти процентах случаев."),
-        ScriptPart("Третья — ты кидаешь куда попало. Щука стоит у бровок, коряжника и перепадов глубины."),
-        ScriptPart("Найди на эхолоте свал с трёх на пять метров и кидай точно на границу."),
-        ScriptPart("Попробуй эти три правила на ближайшей рыбалке. Напиши в комментариях, сработало ли. Подпишись!"),
-    ]
-    return parts, FALLBACK_METADATA
+    idx = random.randrange(len(_FALLBACK_POOL))
+    parts = _FALLBACK_POOL[idx]
+    meta = _FALLBACK_META_POOL[idx]
+    print(f"[FALLBACK] Using fallback script #{idx + 1}")
+    return parts, meta
 
 
 def call_groq_for_script() -> tuple:
@@ -199,8 +345,7 @@ def call_groq_for_script() -> tuple:
         return _fallback_script()
 
     angle = random.choice(ANGLES)
-    fish = random.choice(FISH_TARGETS)
-    method = random.choice(FISHING_METHODS)
+    fish, method = _pick_unique_combo()
 
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {
@@ -283,6 +428,7 @@ def call_groq_for_script() -> tuple:
             description=data.get("description", "") or "Смотри до конца! #рыбалка #fishing #shorts",
             tags=data.get("tags", ["рыбалка", "fishing", "shorts"]),
         )
+        metadata = _enrich_metadata(metadata)
         # Сохраняем LLM-сгенерированные запросы для Pexels
         llm_queries = data.get("pexels_queries", [])
         if llm_queries:
@@ -291,9 +437,45 @@ def call_groq_for_script() -> tuple:
 
         if _validate_script(parts):
             return parts, metadata
-        print("[WARN] LLM output failed quality check, using fallback")
+        print("[WARN] LLM output failed quality check, retrying...")
     except Exception as exc:
-        print(f"[WARN] Groq API error, using fallback script: {exc}")
+        print(f"[WARN] Groq parse error: {exc}, retrying...")
+
+    # ── Retry with reinforced prompt ──
+    body["messages"].append({
+        "role": "user",
+        "content": (
+            "ВАЖНО: предыдущий ответ не прошёл проверку качества. "
+            "Убедись:\n"
+            "1. Минимум 10 фраз, каждая 10-25 слов.\n"
+            "2. Каждая фраза содержит конкретику: цифры, названия приманок, глубины.\n"
+            "3. НИКАКИХ фраз-наполнителей.\n"
+            "Верни JSON в том же формате."
+        ),
+    })
+    body["temperature"] = 1.0
+    try:
+        resp2 = requests.post(url, headers=headers, json=body, timeout=45)
+        resp2.raise_for_status()
+        content2 = resp2.json()["choices"][0]["message"]["content"]
+        content2 = re.sub(r"^```(?:json)?\s*", "", content2.strip())
+        content2 = re.sub(r"\s*```$", "", content2.strip())
+        data2 = json.loads(content2)
+        parts2 = [ScriptPart(p["text"]) for p in data2.get("parts", []) if p.get("text")]
+        metadata2 = VideoMetadata(
+            title=data2.get("title", "")[:100] or "Рыбалка: секреты и лайфхаки #shorts",
+            description=data2.get("description", "") or "Смотри до конца! #рыбалка #fishing #shorts",
+            tags=data2.get("tags", ["рыбалка", "fishing", "shorts"]),
+        )
+        metadata2 = _enrich_metadata(metadata2)
+        llm_queries2 = data2.get("pexels_queries", [])
+        if llm_queries2:
+            _llm_pexels_queries = [q for q in llm_queries2 if isinstance(q, str)][:5]
+        if _validate_script(parts2):
+            return parts2, metadata2
+        print("[WARN] Retry also failed quality check, using fallback")
+    except Exception as exc:
+        print(f"[WARN] Retry failed: {exc}, using fallback")
 
     return _fallback_script()
 
@@ -457,13 +639,16 @@ def _fix_pronunciation(text: str) -> str:
 
 async def _generate_all_audio(parts: List[ScriptPart]) -> List[Path]:
     """Генерирует все аудио-фразы параллельно через gather."""
+    voice = random.choice(TTS_VOICES)
+    rate = random.choice(TTS_RATE_OPTIONS)
+    print(f"  TTS voice: {voice}, rate: {rate}")
     audio_paths: List[Path] = []
     tasks = []
     for i, part in enumerate(parts):
         out = AUDIO_DIR / f"part_{i}.mp3"
         audio_paths.append(out)
         tts_text = _fix_pronunciation(part.text)
-        comm = edge_tts.Communicate(tts_text, TTS_VOICE, rate=TTS_RATE)
+        comm = edge_tts.Communicate(tts_text, voice, rate=rate)
         tasks.append(comm.save(str(out)))
     await asyncio.gather(*tasks)
     return audio_paths
@@ -666,6 +851,7 @@ def _save_metadata(meta: VideoMetadata) -> None:
 
 
 def main() -> None:
+    _clean_build_dir()
     ensure_dirs()
     print("[1/5] Generating script...")
     parts, metadata = call_groq_for_script()
