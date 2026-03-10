@@ -5,6 +5,10 @@ on:
   schedule:
     - cron: "0 */4 * * *" # каждые 4 часа
 
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
 jobs:
   generate:
     runs-on: ubuntu-latest
@@ -50,7 +54,6 @@ jobs:
           python generate_fishing_short.py
 
       - name: Upload to YouTube
-        if: success()
         run: |
           python upload_youtube.py
 
