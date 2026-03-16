@@ -45,9 +45,10 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg imagemagick fonts-dejavu-core fonts-dejavu-extra
-          # Remove ImageMagick PDF/text security policy so moviepy TextClip works
-          sudo sed -i 's/rights="none" pattern="@\*"/rights="read|write" pattern="@*"/' /etc/ImageMagick-6/policy.xml || true
+          sudo apt-get install -y --no-install-recommends ffmpeg imagemagick fonts-dejavu-core fonts-dejavu-extra
+          # Allow ImageMagick text operations (needed for moviepy TextClip / karaoke subtitles)
+          sudo sed -i '/<policy domain="coder"/d' /etc/ImageMagick-6/policy.xml || true
+          sudo sed -i '/<policy domain="path"/d' /etc/ImageMagick-6/policy.xml || true
 
       - name: Install Python dependencies
         run: |
@@ -55,15 +56,19 @@ jobs:
           IMAGEIO_FFMPEG_EXE=/usr/bin/ffmpeg pip install -r requirements.txt
 
       - name: Collect video stats
+        env:
+          IMAGEIO_FFMPEG_EXE: /usr/bin/ffmpeg
         run: python -c "from analytics import fetch_and_update_stats, print_report; fetch_and_update_stats(); print_report()"
 
       - name: Generate fishing short video
-        run: |
-          python generate_fishing_short.py
+        env:
+          IMAGEIO_FFMPEG_EXE: /usr/bin/ffmpeg
+        run: python generate_fishing_short.py
 
       - name: Upload to YouTube
-        run: |
-          python upload_youtube.py
+        env:
+          IMAGEIO_FFMPEG_EXE: /usr/bin/ffmpeg
+        run: python upload_youtube.py
 
       - name: Cleanup build files
         if: always()

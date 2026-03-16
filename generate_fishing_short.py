@@ -464,6 +464,7 @@ def call_groq_for_script() -> tuple:
         ],
         "temperature": 0.85,
         "max_tokens": 2048,
+        "response_format": {"type": "json_object"},
     }
     try:
         resp = requests.post(url, headers=headers, json=body, timeout=30)
@@ -479,8 +480,6 @@ def call_groq_for_script() -> tuple:
 
     try:
         content = resp.json()["choices"][0]["message"]["content"]
-        content = re.sub(r"^```(?:json)?\s*", "", content.strip())
-        content = re.sub(r"\s*```$", "", content.strip())
         data = json.loads(content)
         parts = [ScriptPart(p["text"]) for p in data.get("parts", []) if p.get("text")]
         metadata = VideoMetadata(
@@ -518,8 +517,6 @@ def call_groq_for_script() -> tuple:
         resp2 = requests.post(url, headers=headers, json=body, timeout=45)
         resp2.raise_for_status()
         content2 = resp2.json()["choices"][0]["message"]["content"]
-        content2 = re.sub(r"^```(?:json)?\s*", "", content2.strip())
-        content2 = re.sub(r"\s*```$", "", content2.strip())
         data2 = json.loads(content2)
         parts2 = [ScriptPart(p["text"]) for p in data2.get("parts", []) if p.get("text")]
         metadata2 = VideoMetadata(
