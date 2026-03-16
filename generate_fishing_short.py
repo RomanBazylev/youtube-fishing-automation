@@ -703,19 +703,24 @@ async def _generate_part_audio(
 ) -> List[WordTiming]:
     """Generate audio for one part and capture per-word timings for karaoke."""
     tts_text = _fix_pronunciation(text)
-    comm = edge_tts.Communicate(tts_text, voice, rate=rate)
+    comm = edge_tts.Communicate(tts_text, voice, rate=rate, boundary="WordBoundary")
     word_timings: List[WordTiming] = []
     audio_chunks = bytearray()
 
     async for chunk in comm.stream():
-        if chunk["type"] == "audio":
+        ctype = chunk.get("type") or chunk.get("Type", "")
+        if ctype == "audio":
             audio_chunks.extend(chunk["data"])
-        elif chunk["type"] == "WordBoundary":
-            word_timings.append(WordTiming(
-                text=chunk["text"],
-                offset=chunk["offset"] / 10_000_000,
-                duration=chunk["duration"] / 10_000_000,
-            ))
+        elif ctype == "WordBoundary":
+            w_text = chunk.get("text") or chunk.get("Text", "")
+            w_offset = chunk.get("offset") or chunk.get("Offset", 0)
+            w_duration = chunk.get("duration") or chunk.get("Duration", 0)
+            if w_text:
+                word_timings.append(WordTiming(
+                    text=w_text,
+                    offset=w_offset / 10_000_000,
+                    duration=w_duration / 10_000_000,
+                ))
 
     with out_path.open("wb") as f:
         f.write(audio_chunks)
