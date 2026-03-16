@@ -124,6 +124,7 @@ class VideoMetadata:
     title: str
     description: str
     tags: List[str]
+    topic: str = ""
 
 
 # ── Topic deduplication ────────────────────────────────────────────────
@@ -429,6 +430,7 @@ def call_groq_for_script() -> tuple:
             title=data.get("title", "")[:100] or "Рыбалка: секреты и лайфхаки #shorts",
             description=data.get("description", "") or "Смотри до конца! #рыбалка #fishing #shorts",
             tags=data.get("tags", ["рыбалка", "fishing", "shorts"]),
+            topic=f"{fish}|{method}",
         )
         metadata = _enrich_metadata(metadata)
         # Сохраняем LLM-сгенерированные запросы для Pexels
@@ -468,6 +470,7 @@ def call_groq_for_script() -> tuple:
             title=data2.get("title", "")[:100] or "Рыбалка: секреты и лайфхаки #shorts",
             description=data2.get("description", "") or "Смотри до конца! #рыбалка #fishing #shorts",
             tags=data2.get("tags", ["рыбалка", "fishing", "shorts"]),
+            topic=f"{fish}|{method}",
         )
         metadata2 = _enrich_metadata(metadata2)
         llm_queries2 = data2.get("pexels_queries", [])
@@ -846,7 +849,7 @@ def _save_metadata(meta: VideoMetadata) -> None:
     meta_path = BUILD_DIR / "metadata.json"
     meta_path.write_text(
         json.dumps(
-            {"title": meta.title, "description": meta.description, "tags": meta.tags},
+            {"title": meta.title, "description": meta.description, "tags": meta.tags, "topic": meta.topic},
             ensure_ascii=False,
             indent=2,
         ),
