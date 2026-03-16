@@ -34,8 +34,8 @@ BUILD_DIR = Path("build")
 CLIPS_DIR = BUILD_DIR / "clips"
 AUDIO_DIR = BUILD_DIR / "audio_parts"
 MUSIC_PATH = BUILD_DIR / "music.mp3"
-HISTORY_PATH = BUILD_DIR / "topic_history.json"
-MAX_HISTORY = 8  # remember last N fish+method combos to avoid repeats
+HISTORY_PATH = Path("topic_history.json")
+MAX_HISTORY = 20  # remember last N topics to avoid repeats
 
 # Голос edge-tts: ротация для разнообразия
 TTS_VOICES = [
@@ -84,33 +84,93 @@ ANGLES = [
     "трофейная тактика, проверенная годами",
 ]
 
-# Целевые рыбы/виды ловли — для дополнительной рандомизации
-FISH_TARGETS = [
-    "щука", "окунь", "судак", "карп", "лещ", "жерех", "голавль",
-    "форель", "сом", "карась", "плотва", "язь", "хариус",
-]
-
-FISHING_METHODS = [
-    "спиннинг", "фидер", "поплавок", "ультралайт", "джиг",
-    "твичинг", "троллинг", "нахлыст", "донка", "балансир",
-    "ловля с берега", "ловля с лодки", "ночная ловля", "зимняя ловля",
+# Курированные темы по категориям — разнообразный контент
+TOPICS = [
+    # Советы
+    "3 ошибки новичков при ловле щуки",
+    "как правильно выбрать воблер для спиннинга",
+    "топ 5 приманок для ловли окуня",
+    "секреты ловли карпа на фидер",
+    "как найти рыбу с помощью эхолота",
+    "ночная рыбалка — подготовка и снасти",
+    "ловля на живца — правила и секреты",
+    "правильная проводка для джига",
+    "как привязать крючок — 3 лучших узла",
+    "весенняя рыбалка на леща — где искать",
+    # Рекорды и истории
+    "самая большая щука в истории — 25 кг из Швеции",
+    "рекордный сом весом 120 кг из реки По в Италии",
+    "рыбак поймал тунца за 3 миллиона долларов",
+    "история рекордного марлина на 636 кг",
+    "самый большой карп пойманный в России",
+    "рыбак боролся с акулой 5 часов — и победил",
+    "история уловистого озера Байкал",
+    "легенда о щуке Путина весом в 21 кг",
+    "золотая рыбка из Англии весом 30 кг",
+    "рекордная форель — 22 кг из озера в Канаде",
+    # Факты о рыбах
+    "рыба-удильщик — самое жуткое создание океана",
+    "электрический угорь может убить лошадь",
+    "рыба-луна весит до 2300 кг — самая тяжёлая костная рыба",
+    "парусник плывёт 110 км/ч — самая быстрая рыба",
+    "осётр живёт до 100 лет",
+    "пиранья может сожрать корову за 5 минут",
+    "рыба-капля — самое грустное животное на Земле",
+    "сом может вырасти до 3 метров",
+    "камбала рождается обычной, потом глаз переползает",
+    "лосось проплывает 3000 км чтобы отложить икру",
+    # Лайфхаки
+    "как хранить червей чтобы они жили неделю",
+    "3 способа быстро почистить рыбу",
+    "как сделать прикормку из хлеба и чеснока",
+    "зачем натирают приманку WD-40",
+    "как поймать раков на сало",
+    "секретная наживка из манки для карася",
+    "как правильно отпускать рыбу после поимки",
+    "лайфхак — использование зубной пасты для блёсен",
+    # Экзотические виды
+    "арапаима — рыба-гигант из Амазонки до 3 метров",
+    "целакант — живое ископаемое возрастом 400 млн лет",
+    "латимерия — рыба которую считали вымершей",
+    "рыба-меч может пробить лодку",
+    "мурена — рыба с двумя челюстями",
+    "рыба-камень — самая ядовитая рыба в мире",
+    "рыба-попугай ест кораллы и делает песок",
+    "гигантский групер может проглотить акулу",
 ]
 
 PEXELS_QUERIES = [
-    "fishing river",
-    "fishing lake",
-    "fish underwater",
-    "fishing boat",
-    "fishing rod",
-    "river nature",
-    "lake sunrise",
-    "angler fishing",
-    "fish catch release",
-    "mountain stream trout",
-    "winter fishing ice",
-    "night fishing campfire",
-    "fish jumping water",
-    "forest river peaceful",
+    "fishing rod water",
+    "fisherman river morning",
+    "underwater fish swimming",
+    "lake sunset fishing",
+    "ocean fishing boat",
+    "fish caught closeup",
+    "fishing net water",
+    "river nature scenic",
+    "underwater coral reef fish",
+    "pike fish predator",
+    "fishing reel spinning",
+    "boat lake fog morning",
+    "carp fish pond",
+    "man fishing dock",
+    "tropical fish underwater colorful",
+    "salmon jumping river",
+    "deep sea ocean dark",
+    "mountain lake scenic nature",
+    "catfish underwater dark",
+    "fishing lure bait closeup",
+]
+
+PIXABAY_QUERIES = [
+    "fishing river nature",
+    "underwater fish",
+    "lake sunset scenic",
+    "fishing boat sea",
+    "pike fish predator",
+    "coral reef tropical",
+    "fisherman rod casting",
+    "salmon jumping waterfall",
 ]
 
 
@@ -125,6 +185,13 @@ class VideoMetadata:
     description: str
     tags: List[str]
     topic: str = ""
+
+
+@dataclass
+class WordTiming:
+    text: str
+    offset: float   # seconds from start
+    duration: float  # seconds
 
 
 # ── Topic deduplication ────────────────────────────────────────────────
@@ -143,26 +210,19 @@ def _save_topic_history(history: list) -> None:
     HISTORY_PATH.write_text(json.dumps(history, ensure_ascii=False), encoding="utf-8")
 
 
-def _pick_unique_combo() -> tuple:
-    """Pick a fish + method combo not recently used."""
+def _pick_unique_topic() -> str:
+    """Pick a topic not recently used from curated TOPICS list."""
     history = _load_topic_history()
-    attempts = 0
-    while attempts < 20:
-        fish = random.choice(FISH_TARGETS)
-        method = random.choice(FISHING_METHODS)
-        key = f"{fish}|{method}"
-        if key not in history:
-            history.append(key)
-            if len(history) > MAX_HISTORY:
-                history = history[-MAX_HISTORY:]
-            _save_topic_history(history)
-            return fish, method
-        attempts += 1
-    # If all combos exhausted, clear history and pick fresh
-    fish = random.choice(FISH_TARGETS)
-    method = random.choice(FISHING_METHODS)
-    _save_topic_history([f"{fish}|{method}"])
-    return fish, method
+    available = [t for t in TOPICS if t not in history]
+    if not available:
+        history = []
+        available = list(TOPICS)
+    topic = random.choice(available)
+    history.append(topic)
+    if len(history) > MAX_HISTORY:
+        history = history[-MAX_HISTORY:]
+    _save_topic_history(history)
+    return topic
 
 
 def _clean_build_dir() -> None:
@@ -347,8 +407,8 @@ def call_groq_for_script() -> tuple:
     if not api_key:
         return _fallback_script()
 
+    topic = _pick_unique_topic()
     angle = random.choice(ANGLES)
-    fish, method = _pick_unique_combo()
 
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {
@@ -367,10 +427,8 @@ def call_groq_for_script() -> tuple:
 
     user_prompt = f"""Напиши сценарий YouTube Shorts (45–60 секунд) про рыбалку.
 
-КОНТЕКСТ:
-- Рыба: {fish}
-- Метод ловли: {method}
-- Стиль подачи: {angle}
+ТЕМА: {topic}
+ПОДХОД: {angle}
 
 ТРЕБОВАНИЯ К КОНТЕНТУ:
 1. Первая фраза — мощный хук: провокационный вопрос или шокирующий факт с цифрой.
@@ -396,7 +454,7 @@ def call_groq_for_script() -> tuple:
   ]
 }}"""
 
-    print(f"  Fish: {fish} | Method: {method} | Angle: {angle}")
+    print(f"  Тема: {topic} | Подход: {angle}")
 
     body = {
         "model": "llama-3.3-70b-versatile",
@@ -421,7 +479,6 @@ def call_groq_for_script() -> tuple:
 
     try:
         content = resp.json()["choices"][0]["message"]["content"]
-        # Убираем markdown-обёртку ```json ... ```, если LLM её добавил
         content = re.sub(r"^```(?:json)?\s*", "", content.strip())
         content = re.sub(r"\s*```$", "", content.strip())
         data = json.loads(content)
@@ -430,10 +487,9 @@ def call_groq_for_script() -> tuple:
             title=data.get("title", "")[:100] or "Рыбалка: секреты и лайфхаки #shorts",
             description=data.get("description", "") or "Смотри до конца! #рыбалка #fishing #shorts",
             tags=data.get("tags", ["рыбалка", "fishing", "shorts"]),
-            topic=f"{fish}|{method}",
+            topic=topic,
         )
         metadata = _enrich_metadata(metadata)
-        # Сохраняем LLM-сгенерированные запросы для Pexels
         llm_queries = data.get("pexels_queries", [])
         if llm_queries:
             global _llm_pexels_queries
@@ -470,7 +526,7 @@ def call_groq_for_script() -> tuple:
             title=data2.get("title", "")[:100] or "Рыбалка: секреты и лайфхаки #shorts",
             description=data2.get("description", "") or "Смотри до конца! #рыбалка #fishing #shorts",
             tags=data2.get("tags", ["рыбалка", "fishing", "shorts"]),
-            topic=f"{fish}|{method}",
+            topic=topic,
         )
         metadata2 = _enrich_metadata(metadata2)
         llm_queries2 = data2.get("pexels_queries", [])
@@ -573,7 +629,7 @@ def download_pixabay_clips(max_clips: int = 3) -> List[Path]:
 
     params = {
         "key": api_key,
-        "q": random.choice(_llm_pexels_queries or ["fishing", "river fish", "lake fishing"]),
+        "q": random.choice(_llm_pexels_queries or PIXABAY_QUERIES),
         "per_page": max_clips,
         "safesearch": "true",
         "order": "popular",
@@ -645,25 +701,49 @@ def _fix_pronunciation(text: str) -> str:
     return result
 
 
-async def _generate_all_audio(parts: List[ScriptPart]) -> List[Path]:
-    """Генерирует все аудио-фразы параллельно через gather."""
+async def _generate_part_audio(
+    text: str, voice: str, rate: str, out_path: Path,
+) -> List[WordTiming]:
+    """Generate audio for one part and capture per-word timings for karaoke."""
+    tts_text = _fix_pronunciation(text)
+    comm = edge_tts.Communicate(tts_text, voice, rate=rate)
+    word_timings: List[WordTiming] = []
+    audio_chunks = bytearray()
+
+    async for chunk in comm.stream():
+        if chunk["type"] == "audio":
+            audio_chunks.extend(chunk["data"])
+        elif chunk["type"] == "WordBoundary":
+            word_timings.append(WordTiming(
+                text=chunk["text"],
+                offset=chunk["offset"] / 10_000_000,
+                duration=chunk["duration"] / 10_000_000,
+            ))
+
+    with out_path.open("wb") as f:
+        f.write(audio_chunks)
+    return word_timings
+
+
+async def _generate_all_audio(parts: List[ScriptPart]) -> tuple:
+    """Генерирует все аудио-фразы последовательно, собирает word timings."""
     voice = random.choice(TTS_VOICES)
     rate = random.choice(TTS_RATE_OPTIONS)
     print(f"  TTS voice: {voice}, rate: {rate}")
     audio_paths: List[Path] = []
-    tasks = []
+    all_timings: List[List[WordTiming]] = []
+
     for i, part in enumerate(parts):
         out = AUDIO_DIR / f"part_{i}.mp3"
         audio_paths.append(out)
-        tts_text = _fix_pronunciation(part.text)
-        comm = edge_tts.Communicate(tts_text, voice, rate=rate)
-        tasks.append(comm.save(str(out)))
-    await asyncio.gather(*tasks)
-    return audio_paths
+        timings = await _generate_part_audio(part.text, voice, rate, out)
+        all_timings.append(timings)
+
+    return audio_paths, all_timings
 
 
-def build_tts_per_part(parts: List[ScriptPart]) -> List[Path]:
-    """Генерирует отдельный mp3 для каждой фразы — идеальная синхронизация."""
+def build_tts_per_part(parts: List[ScriptPart]) -> tuple:
+    """Генерирует отдельный mp3 для каждой фразы + word timings для караоке."""
     return asyncio.run(_generate_all_audio(parts))
 
 
@@ -719,37 +799,75 @@ def _apply_ken_burns(clip, duration: float):
     return clip.fl(make_frame)
 
 
-def _make_subtitle(text: str, duration: float) -> list:
-    """Субтитр с обводкой — читаем на любом фоне."""
-    shadow = (
-        TextClip(
-            text,
-            fontsize=72,
-            color="black",
-            font="DejaVu-Sans-Bold",
-            method="caption",
-            size=(TARGET_W - 80, None),
-            stroke_color="black",
-            stroke_width=5,
-        )
-        .set_position(("center", 0.70), relative=True)
-        .set_duration(duration)
-    )
-    main_txt = (
-        TextClip(
-            text,
-            fontsize=72,
-            color="white",
-            font="DejaVu-Sans-Bold",
-            method="caption",
-            size=(TARGET_W - 80, None),
-            stroke_color="black",
-            stroke_width=3,
-        )
-        .set_position(("center", 0.70), relative=True)
-        .set_duration(duration)
-    )
-    return [shadow, main_txt]
+def _make_karaoke_subtitle(
+    word_timings: List[WordTiming], duration: float, is_hook: bool = False,
+) -> list:
+    """Караоке-субтитры: подсветка по словам (оранжевый/жёлтый → белый)."""
+    if not word_timings:
+        return []
+
+    CHUNK_SIZE = 3
+    chunks = []
+    for i in range(0, len(word_timings), CHUNK_SIZE):
+        chunks.append(word_timings[i:i + CHUNK_SIZE])
+
+    active_color = "#FF6600" if is_hook else "yellow"
+    active_fontsize = 80 if is_hook else 68
+    fade_fontsize = 72 if is_hook else 68
+
+    layers = []
+    for ci, chunk in enumerate(chunks):
+        chunk_start = chunk[0].offset
+        if ci + 1 < len(chunks):
+            chunk_end = chunks[ci + 1][0].offset
+        else:
+            chunk_end = min(chunk[-1].offset + chunk[-1].duration + 0.3, duration)
+        chunk_dur = chunk_end - chunk_start
+        if chunk_dur <= 0:
+            continue
+
+        full_text = " ".join(w.text for w in chunk)
+        speak_end = chunk[-1].offset + chunk[-1].duration
+        speak_dur = speak_end - chunk_start
+
+        if speak_dur > 0:
+            active_txt = (
+                TextClip(
+                    full_text,
+                    fontsize=active_fontsize,
+                    color=active_color,
+                    font="DejaVu-Sans-Bold",
+                    method="caption",
+                    size=(TARGET_W - 100, None),
+                    stroke_color="black",
+                    stroke_width=4,
+                )
+                .set_position(("center", 0.75), relative=True)
+                .set_start(chunk_start)
+                .set_duration(min(speak_dur, chunk_dur))
+            )
+            layers.append(active_txt)
+
+        remaining = chunk_end - speak_end
+        if remaining > 0.05:
+            white_txt = (
+                TextClip(
+                    full_text,
+                    fontsize=fade_fontsize,
+                    color="white",
+                    font="DejaVu-Sans-Bold",
+                    method="caption",
+                    size=(TARGET_W - 100, None),
+                    stroke_color="black",
+                    stroke_width=3,
+                )
+                .set_position(("center", 0.75), relative=True)
+                .set_start(speak_end)
+                .set_duration(remaining)
+            )
+            layers.append(white_txt)
+
+    return layers
 
 
 def build_video(
@@ -757,6 +875,7 @@ def build_video(
     clip_paths: List[Path],
     audio_parts: List[Path],
     music_path: Optional[Path],
+    word_timings: List[List[WordTiming]],
 ) -> Path:
     if not clip_paths:
         raise RuntimeError("No video clips downloaded. Provide PEXELS_API_KEY or PIXABAY_API_KEY.")
@@ -789,7 +908,8 @@ def build_video(
         fitted = _fit_clip_to_frame(clip, dur)
         fitted = _apply_ken_burns(fitted, dur)
 
-        subtitle_layers = _make_subtitle(part.text, dur)
+        timings = word_timings[i] if i < len(word_timings) else []
+        subtitle_layers = _make_karaoke_subtitle(timings, dur, is_hook=(i == 0))
 
         composed = CompositeVideoClip(
             [fitted] + subtitle_layers,
@@ -880,7 +1000,7 @@ def main() -> None:
     print(f"  Downloaded {len(clip_paths)} clips")
 
     print("[3/5] Generating TTS audio (edge-tts, per-part)...")
-    audio_parts = build_tts_per_part(parts)
+    audio_parts, word_timings = build_tts_per_part(parts)
     for i, ap in enumerate(audio_parts):
         a = AudioFileClip(str(ap))
         print(f"  Part {i+1}: {a.duration:.1f}s")
@@ -890,7 +1010,7 @@ def main() -> None:
     music_path = download_background_music()
 
     print("[5/5] Building final video...")
-    output = build_video(parts, clip_paths, audio_parts, music_path)
+    output = build_video(parts, clip_paths, audio_parts, music_path, word_timings)
     print(f"Done! Video saved to: {output}")
 
 
