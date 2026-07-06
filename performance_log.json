@@ -1,23 +1,6 @@
 {
   "videos": [
     {
-      "video_id": "WISUTXucvpg",
-      "title": "Осётр до 100 лет! #shorts 🎣",
-      "topic": "",
-      "tags": [
-        "рыбалка",
-        "fishing",
-        "shorts",
-        "осётр",
-        "fishhook",
-        "флюорокарбон",
-        "лайфхак",
-        "рыболов"
-      ],
-      "uploaded_at": "2026-05-29T14:36:35.121395+00:00",
-      "stats": null
-    },
-    {
       "video_id": "we2oqXEcyoo",
       "title": "Пиранья сожрёт корову? 🐟 #shorts",
       "topic": "",
@@ -3554,6 +3537,23 @@
         "рыболов"
       ],
       "uploaded_at": "2026-07-06T18:10:02.768888+00:00",
+      "stats": null
+    },
+    {
+      "video_id": "Sc0k9-x2T7w",
+      "title": "3 способа почистить рыбу 🎣 #shorts",
+      "topic": "",
+      "tags": [
+        "рыбалка",
+        "fishing",
+        "shorts",
+        "рыбная清理",
+        "fishcleaning",
+        "отчет рыбы",
+        "лайфхак",
+        "рыболов"
+      ],
+      "uploaded_at": "2026-07-06T21:23:06.493174+00:00",
       "stats": null
     }
   ]
