@@ -1,24 +1,6 @@
 {
   "videos": [
     {
-      "video_id": "ZVoxTaOkNRU",
-      "title": "Щука Путина весом 21 кг! #shorts",
-      "topic": "",
-      "tags": [
-        "рыбалка",
-        "fishing",
-        "shorts",
-        "щука",
-        "путин",
-        "bigcatch",
-        "fisherman",
-        "лайфхак",
-        "рыболов"
-      ],
-      "uploaded_at": "2026-06-04T18:12:18.095049+00:00",
-      "stats": null
-    },
-    {
       "video_id": "gFNffSWOWKc",
       "title": "Всё про рыбу #shorts 🎣",
       "topic": "",
@@ -3551,6 +3533,23 @@
         "рыболов"
       ],
       "uploaded_at": "2026-07-12T01:24:09.642620+00:00",
+      "stats": null
+    },
+    {
+      "video_id": "Uhci6NRhll4",
+      "title": "Электрический угорь: убийца? #shorts 🐟",
+      "topic": "",
+      "tags": [
+        "рыбалка",
+        "fishing",
+        "shorts",
+        "электрический угорь",
+        "угорь",
+        "безопасная рыбалка",
+        "лайфхак",
+        "рыболов"
+      ],
+      "uploaded_at": "2026-07-12T06:30:07.951142+00:00",
       "stats": null
     }
   ]
