@@ -1,24 +1,6 @@
 {
   "videos": [
     {
-      "video_id": "IUCU9UolssI",
-      "title": "Удильщик на крючок! #shorts",
-      "topic": "",
-      "tags": [
-        "рыбалка",
-        "fishing",
-        "shorts",
-        "удильщик",
-        "рыба",
-        "sea",
-        "ocean",
-        "лайфхак",
-        "рыболов"
-      ],
-      "uploaded_at": "2026-07-01T11:28:21.947198+00:00",
-      "stats": null
-    },
-    {
       "video_id": "l3mhbJQ305M",
       "title": "Камбала: 7 ошибок #shorts",
       "topic": "",
@@ -3554,6 +3536,24 @@
         "рыболов"
       ],
       "uploaded_at": "2026-08-04T17:34:34.135236+00:00",
+      "stats": null
+    },
+    {
+      "video_id": "GCyE9vOv5DI",
+      "title": "#shorts Сом до 3м! 🐟",
+      "topic": "",
+      "tags": [
+        "рыбалка",
+        "fishing",
+        "shorts",
+        "сом",
+        "рыбалка на сома",
+        "fishing tips",
+        "som",
+        "лайфхак",
+        "рыболов"
+      ],
+      "uploaded_at": "2026-08-04T21:05:22.462569+00:00",
       "stats": null
     }
   ]
