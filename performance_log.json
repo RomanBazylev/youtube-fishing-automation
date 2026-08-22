@@ -1,23 +1,6 @@
 {
   "videos": [
     {
-      "video_id": "ZPTQpU-cS5o",
-      "title": "5 часов с акулой! #shorts",
-      "topic": "",
-      "tags": [
-        "рыбалка",
-        "fishing",
-        "shorts",
-        "акула",
-        "бой",
-        "рыбалка на море",
-        "лайфхак",
-        "рыболов"
-      ],
-      "uploaded_at": "2026-07-18T01:19:07.056460+00:00",
-      "stats": null
-    },
-    {
       "video_id": "IsHff-_BEzc",
       "title": "Золотая рыбка 30 кг! #shorts",
       "topic": "",
@@ -3492,6 +3475,21 @@
         "shorts"
       ],
       "uploaded_at": "2026-08-22T00:35:10.653996+00:00",
+      "stats": null
+    },
+    {
+      "video_id": "6cquHB_DCsY",
+      "title": "Как найти карпа 5+ кг? Секрет бровки 🎣 #shorts",
+      "topic": "",
+      "tags": [
+        "рыбалка",
+        "карп",
+        "фидер",
+        "бойлы",
+        "fishing",
+        "shorts"
+      ],
+      "uploaded_at": "2026-08-22T04:24:29.375059+00:00",
       "stats": null
     }
   ]
