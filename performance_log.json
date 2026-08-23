@@ -1,23 +1,6 @@
 {
   "videos": [
     {
-      "video_id": "9NTMCGsvLcU",
-      "title": "Пиранья сожрёт корову за 5 минут? #shorts",
-      "topic": "",
-      "tags": [
-        "рыбалка",
-        "fishing",
-        "shorts",
-        "пирания",
-        "рыбалка_на_пиранию",
-        "novice_fishing",
-        "лайфхак",
-        "рыболов"
-      ],
-      "uploaded_at": "2026-07-19T09:48:01.125379+00:00",
-      "stats": null
-    },
-    {
       "video_id": "cbgjGNAf_BY",
       "title": "Лещ в весне #shorts 🎣",
       "topic": "",
@@ -3472,6 +3455,21 @@
         "shorts"
       ],
       "uploaded_at": "2026-08-23T08:21:56.020672+00:00",
+      "stats": null
+    },
+    {
+      "video_id": "iAn5rEn8bkY",
+      "title": "Как найти карпа 5+ кг? Секрет бровки 🎣 #shorts",
+      "topic": "",
+      "tags": [
+        "рыбалка",
+        "карп",
+        "фидер",
+        "бойлы",
+        "fishing",
+        "shorts"
+      ],
+      "uploaded_at": "2026-08-23T12:21:48.168265+00:00",
       "stats": null
     }
   ]
