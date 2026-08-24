@@ -1,24 +1,6 @@
 {
   "videos": [
     {
-      "video_id": "tsSQXGUkXF4",
-      "title": "Рыбачь как профи 🎣 #shorts",
-      "topic": "",
-      "tags": [
-        "рыбалка",
-        "fishing",
-        "shorts",
-        "форель",
-        "Канада",
-        "рыбалка на форель",
-        "ловля рыбы",
-        "лайфхак",
-        "рыболов"
-      ],
-      "uploaded_at": "2026-07-20T06:43:07.919643+00:00",
-      "stats": null
-    },
-    {
       "video_id": "DtdI-XVydKw",
       "title": "Сом до 3м! #shorts",
       "topic": "",
@@ -3462,6 +3444,21 @@
         "shorts"
       ],
       "uploaded_at": "2026-08-24T00:34:55.684966+00:00",
+      "stats": null
+    },
+    {
+      "video_id": "TS5palh-_u0",
+      "title": "Как найти карпа 5+ кг? Секрет бровки 🎣 #shorts",
+      "topic": "",
+      "tags": [
+        "рыбалка",
+        "карп",
+        "фидер",
+        "бойлы",
+        "fishing",
+        "shorts"
+      ],
+      "uploaded_at": "2026-08-24T04:40:53.459822+00:00",
       "stats": null
     }
   ]
