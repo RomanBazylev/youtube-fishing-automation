@@ -1,24 +1,6 @@
 {
   "videos": [
     {
-      "video_id": "PVxytO0OtaQ",
-      "title": "WD-40 на наживку? #shorts 🎣",
-      "topic": "",
-      "tags": [
-        "рыбалка",
-        "fishing",
-        "shorts",
-        "рыболовные_секреты",
-        "fishing_tips",
-        "WD-40",
-        "рыболовные_приманки",
-        "лайфхак",
-        "рыболов"
-      ],
-      "uploaded_at": "2026-07-20T03:14:51.322646+00:00",
-      "stats": null
-    },
-    {
       "video_id": "tsSQXGUkXF4",
       "title": "Рыбачь как профи 🎣 #shorts",
       "topic": "",
@@ -3465,6 +3447,21 @@
         "shorts"
       ],
       "uploaded_at": "2026-08-23T20:15:28.959384+00:00",
+      "stats": null
+    },
+    {
+      "video_id": "sMFOFaYdflQ",
+      "title": "3 приманки для глухозимья — ловят когда всё молчит 🎣 #shorts",
+      "topic": "",
+      "tags": [
+        "рыбалка",
+        "зимняя рыбалка",
+        "мормышка",
+        "балансир",
+        "fishing",
+        "shorts"
+      ],
+      "uploaded_at": "2026-08-24T00:34:55.684966+00:00",
       "stats": null
     }
   ]
