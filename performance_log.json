@@ -1,24 +1,6 @@
 {
   "videos": [
     {
-      "video_id": "x7dAKU-CiG0",
-      "title": "Карась клюет на манку 80% чаще 🎣 #shorts",
-      "topic": "",
-      "tags": [
-        "рыбалка",
-        "fishing",
-        "shorts",
-        "манка",
-        "карась",
-        "наживка",
-        "fishbait",
-        "лайфхак",
-        "рыболов"
-      ],
-      "uploaded_at": "2026-07-21T01:21:26.232756+00:00",
-      "stats": null
-    },
-    {
       "video_id": "rprcRD4tcRg",
       "title": "Самая ядовитая рыба! #fishing #shorts",
       "topic": "",
@@ -3446,6 +3428,21 @@
         "shorts"
       ],
       "uploaded_at": "2026-08-24T20:22:29.498322+00:00",
+      "stats": null
+    },
+    {
+      "video_id": "OocaT9d4XHA",
+      "title": "Как найти карпа 5+ кг? Секрет бровки 🎣 #shorts",
+      "topic": "",
+      "tags": [
+        "рыбалка",
+        "карп",
+        "фидер",
+        "бойлы",
+        "fishing",
+        "shorts"
+      ],
+      "uploaded_at": "2026-08-25T00:35:55.596428+00:00",
       "stats": null
     }
   ]
