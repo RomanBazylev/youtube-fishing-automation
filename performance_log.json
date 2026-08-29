@@ -1,23 +1,6 @@
 {
   "videos": [
     {
-      "video_id": "xDXg84EQPXg",
-      "title": "3 хитрых способа почистить рыбу 🎣 #shorts",
-      "topic": "",
-      "tags": [
-        "рыбалка",
-        "fishing",
-        "shorts",
-        "рыбалка на щуку",
-        "cleaning fish",
-        "рыболовные советы",
-        "лайфхак",
-        "рыболов"
-      ],
-      "uploaded_at": "2026-07-24T01:20:25.889198+00:00",
-      "stats": null
-    },
-    {
       "video_id": "y5p8Tz3Ycd0",
       "title": "Золотая рыбка 30 кг! #shorts 🎣",
       "topic": "",
@@ -3397,6 +3380,21 @@
         "shorts"
       ],
       "uploaded_at": "2026-08-29T10:37:01.411691+00:00",
+      "stats": null
+    },
+    {
+      "video_id": "CU6Ov5TnkFE",
+      "title": "Почему щука не клюёт? 3 ошибки новичков 🎣 #shorts",
+      "topic": "",
+      "tags": [
+        "рыбалка",
+        "щука",
+        "спиннинг",
+        "fishing",
+        "shorts",
+        "лайфхак"
+      ],
+      "uploaded_at": "2026-08-29T15:55:08.880669+00:00",
       "stats": null
     }
   ]
