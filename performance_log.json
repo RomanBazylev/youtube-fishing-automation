@@ -1,25 +1,6 @@
 {
   "videos": [
     {
-      "video_id": "CWPathcVgew",
-      "title": "Прикормка из хлеба и чеснока #shorts",
-      "topic": "",
-      "tags": [
-        "рыбалка",
-        "fishing",
-        "shorts",
-        "прикормка",
-        "хлеб",
-        "чеснок",
-        "советы",
-        "рецепты",
-        "лайфхак",
-        "рыболов"
-      ],
-      "uploaded_at": "2026-07-26T16:49:50.067497+00:00",
-      "stats": null
-    },
-    {
       "video_id": "4WjFvASZhjI",
       "title": "Раки на сало #shorts 🐟",
       "topic": "",
@@ -3352,6 +3333,21 @@
         "shorts"
       ],
       "uploaded_at": "2026-09-01T19:01:34.372226+00:00",
+      "stats": null
+    },
+    {
+      "video_id": "YJQIXAPEgNE",
+      "title": "Почему щука не клюёт? 3 ошибки новичков 🎣 #shorts",
+      "topic": "",
+      "tags": [
+        "рыбалка",
+        "щука",
+        "спиннинг",
+        "fishing",
+        "shorts",
+        "лайфхак"
+      ],
+      "uploaded_at": "2026-09-01T22:16:26.696865+00:00",
       "stats": null
     }
   ]
