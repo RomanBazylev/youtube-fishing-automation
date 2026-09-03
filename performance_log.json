@@ -1,23 +1,6 @@
 {
   "videos": [
     {
-      "video_id": "B-SQXXgHQYg",
-      "title": "3 хитрости чистки рыбы 🎣 #shorts",
-      "topic": "",
-      "tags": [
-        "рыбалка",
-        "fishing",
-        "shorts",
-        "рыбная ловля",
-        "чистка рыбы",
-        "советы рыбакам",
-        "лайфхак",
-        "рыболов"
-      ],
-      "uploaded_at": "2026-07-27T21:02:55.567067+00:00",
-      "stats": null
-    },
-    {
       "video_id": "zZOzawm3uOE",
       "title": "Парусник 110 км/ч! #рыбалка #shorts",
       "topic": "",
@@ -3333,6 +3316,21 @@
         "shorts"
       ],
       "uploaded_at": "2026-09-03T01:42:17.715392+00:00",
+      "stats": null
+    },
+    {
+      "video_id": "KvsUpZs5Mxc",
+      "title": "Как найти карпа 5+ кг? Секрет бровки 🎣 #shorts",
+      "topic": "",
+      "tags": [
+        "рыбалка",
+        "карп",
+        "фидер",
+        "бойлы",
+        "fishing",
+        "shorts"
+      ],
+      "uploaded_at": "2026-09-03T08:29:11.712014+00:00",
       "stats": null
     }
   ]
