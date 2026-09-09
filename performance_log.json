@@ -1,24 +1,6 @@
 {
   "videos": [
     {
-      "video_id": "kZxBRlsxvsk",
-      "title": "Удильщик против щуки #shorts 🎣",
-      "topic": "",
-      "tags": [
-        "рыбалка",
-        "fishing",
-        "shorts",
-        "fish",
-        "удильщик",
-        "щука",
-        "рыбалка на море",
-        "лайфхак",
-        "рыболов"
-      ],
-      "uploaded_at": "2026-08-01T20:44:18.316361+00:00",
-      "stats": null
-    },
-    {
       "video_id": "wNwmIVeM_88",
       "title": " WD-40 для рыбалки #shorts",
       "topic": "",
@@ -3250,6 +3232,21 @@
         "shorts"
       ],
       "uploaded_at": "2026-09-08T22:11:41.871266+00:00",
+      "stats": null
+    },
+    {
+      "video_id": "V97kZz_c5wc",
+      "title": "Почему щука не клюёт? 3 ошибки новичков 🎣 #shorts",
+      "topic": "",
+      "tags": [
+        "рыбалка",
+        "щука",
+        "спиннинг",
+        "fishing",
+        "shorts",
+        "лайфхак"
+      ],
+      "uploaded_at": "2026-09-09T01:48:00.686626+00:00",
       "stats": null
     }
   ]
