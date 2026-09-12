@@ -1,22 +1,6 @@
 {
   "videos": [
     {
-      "video_id": "saL8plsFP0Q",
-      "title": "Зубная паста на блесне #shorts 🎣",
-      "topic": "",
-      "tags": [
-        "рыбалка",
-        "fishing",
-        "shorts",
-        "лайфхак",
-        "блесна",
-        "зубная паста",
-        "рыболов"
-      ],
-      "uploaded_at": "2026-08-04T17:34:34.135236+00:00",
-      "stats": null
-    },
-    {
       "video_id": "GCyE9vOv5DI",
       "title": "#shorts Сом до 3м! 🐟",
       "topic": "",
@@ -3200,6 +3184,21 @@
         "shorts"
       ],
       "uploaded_at": "2026-09-12T08:17:46.595405+00:00",
+      "stats": null
+    },
+    {
+      "video_id": "0gSXfZxNM04",
+      "title": "Почему щука не клюёт? 3 ошибки новичков 🎣 #shorts",
+      "topic": "",
+      "tags": [
+        "рыбалка",
+        "щука",
+        "спиннинг",
+        "fishing",
+        "shorts",
+        "лайфхак"
+      ],
+      "uploaded_at": "2026-09-12T14:33:46.032476+00:00",
       "stats": null
     }
   ]
