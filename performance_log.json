@@ -1,24 +1,6 @@
 {
   "videos": [
     {
-      "video_id": "vfSmv6UPCCc",
-      "title": "😁 Рыбак поймал тунца за 3 млн! #shorts",
-      "topic": "",
-      "tags": [
-        "рыбалка",
-        "fishing",
-        "shorts",
-        "тунец",
-        "рыболовные советы",
-        "рыбалка для начинающих",
-        "big catch",
-        "лайфхак",
-        "рыболов"
-      ],
-      "uploaded_at": "2026-08-15T08:18:38.838425+00:00",
-      "stats": null
-    },
-    {
       "video_id": "hXUhPXRI0fU",
       "title": "Живи червей неделю! 🐛 #shorts",
       "topic": "",
@@ -3025,6 +3007,21 @@
         "shorts"
       ],
       "uploaded_at": "2026-09-25T02:08:40.600729+00:00",
+      "stats": null
+    },
+    {
+      "video_id": "ECytQ-igpjM",
+      "title": "Как найти карпа 5+ кг? Секрет бровки 🎣 #shorts",
+      "topic": "",
+      "tags": [
+        "рыбалка",
+        "карп",
+        "фидер",
+        "бойлы",
+        "fishing",
+        "shorts"
+      ],
+      "uploaded_at": "2026-09-25T09:16:12.835615+00:00",
       "stats": null
     }
   ]
