@@ -1,24 +1,6 @@
 {
   "videos": [
     {
-      "video_id": "fwA9QAlue-I",
-      "title": "Парусник 110 км/ч! #shorts",
-      "topic": "",
-      "tags": [
-        "рыбалка",
-        "fishing",
-        "shorts",
-        "парусник",
-        "рыбалка на море",
-        "fish",
-        "sea fishing",
-        "лайфхак",
-        "рыболов"
-      ],
-      "uploaded_at": "2026-08-16T08:20:35.855030+00:00",
-      "stats": null
-    },
-    {
       "video_id": "ZtbpQityHhE",
       "title": "Рыба-удильщик: 90% рыбаков ошибаются #shorts",
       "topic": "",
@@ -3014,6 +2996,21 @@
         "shorts"
       ],
       "uploaded_at": "2026-09-26T02:12:40.507382+00:00",
+      "stats": null
+    },
+    {
+      "video_id": "qOLvp_5s6fk",
+      "title": "Окунь на каждый заброс! Секрет проводки 🎣 #shorts",
+      "topic": "",
+      "tags": [
+        "рыбалка",
+        "окунь",
+        "спиннинг",
+        "отводной поводок",
+        "fishing",
+        "shorts"
+      ],
+      "uploaded_at": "2026-09-26T08:58:40.947876+00:00",
       "stats": null
     }
   ]
