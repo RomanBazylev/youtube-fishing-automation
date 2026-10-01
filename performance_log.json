@@ -1,21 +1,6 @@
 {
   "videos": [
     {
-      "video_id": "pl-3XoCHVdo",
-      "title": "Как найти карпа 5+ кг? Секрет бровки 🎣 #shorts",
-      "topic": "",
-      "tags": [
-        "рыбалка",
-        "карп",
-        "фидер",
-        "бойлы",
-        "fishing",
-        "shorts"
-      ],
-      "uploaded_at": "2026-08-20T12:26:01.215059+00:00",
-      "stats": null
-    },
-    {
       "video_id": "V6KDqoPluG8",
       "title": "Окунь на каждый заброс! Секрет проводки 🎣 #shorts",
       "topic": "",
@@ -2998,6 +2983,21 @@
         "shorts"
       ],
       "uploaded_at": "2026-09-30T23:23:09.345638+00:00",
+      "stats": null
+    },
+    {
+      "video_id": "gidTOy7ZWN4",
+      "title": "Почему щука не клюёт? 3 ошибки новичков 🎣 #shorts",
+      "topic": "",
+      "tags": [
+        "рыбалка",
+        "щука",
+        "спиннинг",
+        "fishing",
+        "shorts",
+        "лайфхак"
+      ],
+      "uploaded_at": "2026-10-01T02:40:56.654047+00:00",
       "stats": null
     }
   ]
