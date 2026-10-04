@@ -1,21 +1,6 @@
 {
   "videos": [
     {
-      "video_id": "qjKs1OJTVfw",
-      "title": "Почему щука не клюёт? 3 ошибки новичков 🎣 #shorts",
-      "topic": "",
-      "tags": [
-        "рыбалка",
-        "щука",
-        "спиннинг",
-        "fishing",
-        "shorts",
-        "лайфхак"
-      ],
-      "uploaded_at": "2026-08-22T16:16:06.044651+00:00",
-      "stats": null
-    },
-    {
       "video_id": "rLLkN65JhtQ",
       "title": "Почему щука не клюёт? 3 ошибки новичков 🎣 #shorts",
       "topic": "",
@@ -2998,6 +2983,21 @@
         "shorts"
       ],
       "uploaded_at": "2026-10-03T22:36:22.189710+00:00",
+      "stats": null
+    },
+    {
+      "video_id": "hIDrEkuTnYg",
+      "title": "Окунь на каждый заброс! Секрет проводки 🎣 #shorts",
+      "topic": "",
+      "tags": [
+        "рыбалка",
+        "окунь",
+        "спиннинг",
+        "отводной поводок",
+        "fishing",
+        "shorts"
+      ],
+      "uploaded_at": "2026-10-04T03:02:47.023914+00:00",
       "stats": null
     }
   ]
