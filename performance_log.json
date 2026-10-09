@@ -1,21 +1,6 @@
 {
   "videos": [
     {
-      "video_id": "F-0gVbfbN5A",
-      "title": "Почему щука не клюёт? 3 ошибки новичков 🎣 #shorts",
-      "topic": "",
-      "tags": [
-        "рыбалка",
-        "щука",
-        "спиннинг",
-        "fishing",
-        "shorts",
-        "лайфхак"
-      ],
-      "uploaded_at": "2026-08-25T20:22:20.981526+00:00",
-      "stats": null
-    },
-    {
       "video_id": "pohYk_unJGU",
       "title": "Почему щука не клюёт? 3 ошибки новичков 🎣 #shorts",
       "topic": "",
@@ -2998,6 +2983,21 @@
         "shorts"
       ],
       "uploaded_at": "2026-10-09T04:46:30.496343+00:00",
+      "stats": null
+    },
+    {
+      "video_id": "3UC7OnTlx34",
+      "title": "Как найти карпа 5+ кг? Секрет бровки 🎣 #shorts",
+      "topic": "",
+      "tags": [
+        "рыбалка",
+        "карп",
+        "фидер",
+        "бойлы",
+        "fishing",
+        "shorts"
+      ],
+      "uploaded_at": "2026-10-09T14:51:57.400891+00:00",
       "stats": null
     }
   ]
